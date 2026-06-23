@@ -11,7 +11,13 @@ import { fromCents, toId } from '../shared'
 
 export function listarClientes(): Cliente[] {
   return getDatabase()
-    .prepare('SELECT id, nombre, telefono, creado_en AS creadoEn FROM clientes ORDER BY nombre')
+    .prepare(
+      `SELECT id, nombre, telefono, creado_en AS creadoEn, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM clientes
+       WHERE eliminacion_programada_en IS NULL OR datetime(eliminacion_programada_en) > datetime('now')
+       ORDER BY nombre`
+    )
     .all() as unknown as Cliente[]
 }
 
@@ -21,7 +27,11 @@ export function crearCliente(input: ClienteInput): Cliente {
     .prepare('INSERT INTO clientes (nombre, telefono) VALUES (?, ?)')
     .run(data.nombre, data.telefono)
   return getDatabase()
-    .prepare('SELECT id, nombre, telefono, creado_en AS creadoEn FROM clientes WHERE id = ?')
+    .prepare(
+      `SELECT id, nombre, telefono, creado_en AS creadoEn, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM clientes WHERE id = ?`
+    )
     .get(toId(result.lastInsertRowid)) as unknown as Cliente
 }
 
@@ -60,7 +70,11 @@ export function crearClienteConVehiculo(input: ClienteConVehiculoInput): Cliente
     }
 
     return getDatabase()
-      .prepare('SELECT id, nombre, telefono, creado_en AS creadoEn FROM clientes WHERE id = ?')
+      .prepare(
+      `SELECT id, nombre, telefono, creado_en AS creadoEn, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM clientes WHERE id = ?`
+      )
       .get(clienteId) as unknown as Cliente
   })
 }
@@ -73,19 +87,51 @@ export function actualizarCliente(clienteId: number, input: ClienteInput): Clien
   if (result.changes === 0) throw new Error('Cliente no encontrado')
 
   return getDatabase()
-    .prepare('SELECT id, nombre, telefono, creado_en AS creadoEn FROM clientes WHERE id = ?')
+    .prepare(
+      `SELECT id, nombre, telefono, creado_en AS creadoEn, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM clientes WHERE id = ?`
+    )
     .get(clienteId) as unknown as Cliente
 }
 
 export function eliminarCliente(clienteId: number): void {
-  const vehiculo = getDatabase()
-    .prepare('SELECT 1 FROM vehiculos WHERE cliente_id = ? LIMIT 1')
-    .get(clienteId)
-  if (vehiculo) {
-    throw new Error('No se puede eliminar: el cliente tiene vehículos registrados')
-  }
+  getDatabase()
+    .prepare(
+      `UPDATE vehiculos
+       SET estado = 'INACTIVO'
+       WHERE cliente_id = ? AND estado = 'ACTIVO'`
+    )
+    .run(clienteId)
 
-  const result = getDatabase().prepare('DELETE FROM clientes WHERE id = ?').run(clienteId)
+  const result = getDatabase()
+    .prepare(
+      `UPDATE clientes
+       SET estado = 'INACTIVO',
+           eliminacion_programada_en = datetime('now', '+24 hours')
+       WHERE id = ?`
+    )
+    .run(clienteId)
+  if (result.changes === 0) throw new Error('Cliente no encontrado')
+}
+
+export function cancelarEliminacionCliente(clienteId: number): void {
+  getDatabase()
+    .prepare(
+      `UPDATE vehiculos
+       SET estado = 'ACTIVO'
+       WHERE cliente_id = ? AND estado = 'INACTIVO' AND eliminacion_programada_en IS NULL`
+    )
+    .run(clienteId)
+
+  const result = getDatabase()
+    .prepare(
+      `UPDATE clientes
+       SET estado = 'ACTIVO',
+           eliminacion_programada_en = NULL
+       WHERE id = ?`
+    )
+    .run(clienteId)
   if (result.changes === 0) throw new Error('Cliente no encontrado')
 }
 

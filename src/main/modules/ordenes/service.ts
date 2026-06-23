@@ -20,9 +20,8 @@ function mapOrden(row: OrdenRow): OrdenResumen {
 }
 
 const ordenSelect = `
-  SELECT o.id, o.vehiculo_id AS vehiculoId, o.empleado_id AS empleadoId,
+  SELECT o.id, o.vehiculo_id AS vehiculoId,
          c.nombre AS cliente, v.placa,
-         e.nombres || ' ' || e.apellidos AS empleado,
          o.descuento_centavos AS descuentoCentavos,
          o.total_centavos AS totalCentavos, o.estado,
          o.estado_operativo AS estadoOperativo, o.metodo_pago AS metodoPago,
@@ -35,7 +34,6 @@ const ordenSelect = `
   FROM ordenes o
   JOIN vehiculos v ON v.id = o.vehiculo_id
   JOIN clientes c ON c.id = v.cliente_id
-  JOIN empleados e ON e.id = o.empleado_id
 `
 
 export function listarOrdenes(): OrdenResumen[] {
@@ -50,11 +48,6 @@ export function crearOrden(input: OrdenInput): OrdenResumen {
   const servicioIds = [...new Set(data.servicioIds)]
 
   return transaction(() => {
-    const empleado = getDatabase()
-      .prepare("SELECT id FROM empleados WHERE id = ? AND estado = 'ACTIVO'")
-      .get(data.empleadoId)
-    if (!empleado) throw new Error('Empleado activo no encontrado')
-
     const placeholders = servicioIds.map(() => '?').join(', ')
     const servicios = getDatabase()
       .prepare(
@@ -74,18 +67,10 @@ export function crearOrden(input: OrdenInput): OrdenResumen {
     const result = getDatabase()
       .prepare(
         `INSERT INTO ordenes
-         (vehiculo_id, empleado_id, subtotal_centavos, descuento_centavos,
-          total_centavos, metodo_pago)
-         VALUES (?, ?, ?, ?, ?, ?)`
+         (vehiculo_id, subtotal_centavos, descuento_centavos, total_centavos, metodo_pago)
+         VALUES (?, ?, ?, ?, ?)`
       )
-      .run(
-        data.vehiculoId,
-        data.empleadoId,
-        subtotal,
-        descuento,
-        total,
-        data.metodoPago
-      )
+      .run(data.vehiculoId, subtotal, descuento, total, data.metodoPago)
     const ordenId = toId(result.lastInsertRowid)
     const insertService = getDatabase().prepare(
       `INSERT INTO orden_servicios (orden_id, servicio_id, precio_centavos)
@@ -115,11 +100,6 @@ export function actualizarOrden(ordenId: number, input: OrdenInput): OrdenResume
       throw new Error('Solo se pueden editar órdenes recién recibidas')
     }
 
-    const empleado = getDatabase()
-      .prepare("SELECT id FROM empleados WHERE id = ? AND estado = 'ACTIVO'")
-      .get(data.empleadoId)
-    if (!empleado) throw new Error('Empleado activo no encontrado')
-
     const placeholders = servicioIds.map(() => '?').join(', ')
     const servicios = getDatabase()
       .prepare(
@@ -138,13 +118,12 @@ export function actualizarOrden(ordenId: number, input: OrdenInput): OrdenResume
     getDatabase()
       .prepare(
         `UPDATE ordenes
-         SET vehiculo_id = ?, empleado_id = ?, subtotal_centavos = ?,
-             descuento_centavos = ?, total_centavos = ?, metodo_pago = ?
+         SET vehiculo_id = ?, subtotal_centavos = ?, descuento_centavos = ?,
+             total_centavos = ?, metodo_pago = ?
          WHERE id = ?`
       )
       .run(
         data.vehiculoId,
-        data.empleadoId,
         subtotal,
         descuento,
         subtotal - descuento,

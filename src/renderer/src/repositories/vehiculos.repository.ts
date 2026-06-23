@@ -5,5 +5,6 @@ export const vehiculosRepository = {
   create: (input: VehiculoInput) => window.api.vehiculos.crear(input),
   update: (vehicleId: number, input: VehiculoInput) =>
     window.api.vehiculos.actualizar(vehicleId, input),
-  delete: (vehicleId: number) => window.api.vehiculos.eliminar(vehicleId)
+  delete: (vehicleId: number) => window.api.vehiculos.eliminar(vehicleId),
+  cancelarEliminacion: (vehicleId: number) => window.api.vehiculos.cancelarEliminacion(vehicleId)
 }

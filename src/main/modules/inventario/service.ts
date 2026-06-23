@@ -16,8 +16,11 @@ export function listarInsumos(): Insumo[] {
   return getDatabase()
     .prepare(
       `SELECT id, nombre, unidad, stock_actual AS stockActual,
-              stock_minimo AS stockMinimo, estado
-       FROM insumos WHERE estado = 'ACTIVO' ORDER BY nombre`
+              stock_minimo AS stockMinimo, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM insumos
+       WHERE eliminacion_programada_en IS NULL OR datetime(eliminacion_programada_en) > datetime('now')
+       ORDER BY nombre`
     )
     .all() as unknown as Insumo[]
 }
@@ -31,8 +34,9 @@ export function crearInsumo(input: InsumoInput): Insumo {
   return getDatabase()
     .prepare(
       `SELECT id, nombre, unidad, stock_actual AS stockActual,
-              stock_minimo AS stockMinimo, estado
-       FROM insumos WHERE id = ? AND estado = 'ACTIVO'`
+              stock_minimo AS stockMinimo, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM insumos WHERE id = ?`
     )
     .get(toId(result.lastInsertRowid)) as unknown as Insumo
 }
@@ -44,7 +48,7 @@ export function actualizarInsumo(insumoId: number, input: InsumoUpdateInput): In
     .prepare(
       `UPDATE insumos
        SET nombre = ?, unidad = ?, stock_minimo = ?
-       WHERE id = ? AND estado = 'ACTIVO'`
+       WHERE id = ?`
     )
     .run(data.nombre, data.unidad, data.stockMinimo, insumoId)
   if (result.changes === 0) throw new Error('Insumo no encontrado')
@@ -52,28 +56,35 @@ export function actualizarInsumo(insumoId: number, input: InsumoUpdateInput): In
   return getDatabase()
     .prepare(
       `SELECT id, nombre, unidad, stock_actual AS stockActual,
-              stock_minimo AS stockMinimo, estado
-       FROM insumos WHERE id = ? AND estado = 'ACTIVO'`
+              stock_minimo AS stockMinimo, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM insumos WHERE id = ?`
     )
     .get(insumoId) as unknown as Insumo
 }
 
 export function eliminarInsumo(insumoId: number): void {
-  const enUso = getDatabase()
-    .prepare(
-      `SELECT 1
-       FROM servicio_insumos si
-       JOIN servicios s ON s.id = si.servicio_id
-       WHERE si.insumo_id = ? AND s.estado = 'ACTIVO'
-       LIMIT 1`
-    )
-    .get(insumoId)
-  if (enUso) throw new Error('No se puede eliminar: el insumo forma parte de un servicio activo')
-
   const result = getDatabase()
-    .prepare("UPDATE insumos SET estado = 'INACTIVO' WHERE id = ? AND estado = 'ACTIVO'")
+    .prepare(
+      `UPDATE insumos
+       SET estado = 'INACTIVO',
+           eliminacion_programada_en = datetime('now', '+24 hours')
+       WHERE id = ?`
+    )
     .run(insumoId)
-  if (result.changes === 0) throw new Error('Insumo activo no encontrado')
+  if (result.changes === 0) throw new Error('Insumo no encontrado')
+}
+
+export function cambiarEstadoInsumo(insumoId: number, estado: 'ACTIVO' | 'INACTIVO'): void {
+  const result = getDatabase()
+    .prepare(
+      `UPDATE insumos
+       SET estado = ?,
+           eliminacion_programada_en = CASE WHEN ? = 'ACTIVO' THEN NULL ELSE eliminacion_programada_en END
+       WHERE id = ?`
+    )
+    .run(estado, estado, insumoId)
+  if (result.changes === 0) throw new Error('Insumo no encontrado')
 }
 
 export function comprarInsumo(input: CompraInsumoInput): void {
@@ -81,9 +92,7 @@ export function comprarInsumo(input: CompraInsumoInput): void {
   transaction(() => {
     const insumo = getDatabase()
       .prepare('SELECT id, nombre, unidad FROM insumos WHERE id = ? AND estado = ?')
-      .get(data.insumoId, 'ACTIVO') as
-      | { id: number; nombre: string; unidad: string }
-      | undefined
+      .get(data.insumoId, 'ACTIVO') as { id: number; nombre: string; unidad: string } | undefined
     if (!insumo) throw new Error('Insumo activo no encontrado')
     if (unidadesEnteras.has(insumo.unidad) && !Number.isInteger(data.cantidad)) {
       throw new Error(`La cantidad en ${insumo.unidad} debe ser un número entero`)

@@ -11,7 +11,7 @@ interface LineChartProps {
 
 export function LineChart({
   data,
-  color = '#185adb',
+  color = '#0284C7',
   formatValue = String
 }: LineChartProps): React.JSX.Element {
   const width = 640
@@ -50,13 +50,13 @@ export function LineChart({
           points={points.map((point) => `${point.x},${point.y}`).join(' ')}
           fill="none"
           stroke={color}
-          strokeWidth="4"
+          strokeWidth="3"
           strokeLinejoin="round"
           strokeLinecap="round"
         />
         {points.map((point) => (
           <g key={`${point.label}-${point.x}`}>
-            <circle cx={point.x} cy={point.y} r="5" fill={color}>
+            <circle cx={point.x} cy={point.y} r="4.5" fill="white" stroke={color} strokeWidth="3">
               <title>
                 {point.label}: {formatValue(point.value)}
               </title>
@@ -123,6 +123,63 @@ export function ComparisonChart({
   )
 }
 
+interface BalanceChartProps {
+  data: {
+    label: string
+    value: number
+  }[]
+  formatValue: (value: number) => string
+}
+
+export function BalanceChart({ data, formatValue }: BalanceChartProps): React.JSX.Element {
+  const max = Math.max(...data.map((item) => Math.abs(item.value)), 1)
+
+  return (
+    <div>
+      <div className="chart-legend">
+        <span>
+          <i className="legend-positive" /> Ganancia
+        </span>
+        <span>
+          <i className="legend-negative" /> Pérdida
+        </span>
+      </div>
+      <div className="balance-chart" role="img" aria-label="Resultado diario de caja">
+        {data.map((item) => {
+          const height = `${(Math.abs(item.value) / max) * 100}%`
+          const tone = item.value > 0 ? 'positive' : 'negative'
+
+          return (
+            <div className="balance-column" key={item.label}>
+              <div className="balance-plot">
+                <div className="balance-half balance-positive">
+                  {item.value > 0 && (
+                    <div
+                      className={`balance-bar ${tone}`}
+                      style={{ height }}
+                      title={`${item.label}: ${formatValue(item.value)}`}
+                    />
+                  )}
+                </div>
+                <div className="balance-half balance-negative">
+                  {item.value < 0 && (
+                    <div
+                      className={`balance-bar ${tone}`}
+                      style={{ height }}
+                      title={`${item.label}: ${formatValue(item.value)}`}
+                    />
+                  )}
+                </div>
+              </div>
+              <span>{item.label}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 interface HorizontalBarChartProps {
   data: {
     label: string
@@ -136,7 +193,7 @@ interface HorizontalBarChartProps {
 export function HorizontalBarChart({
   data,
   emptyMessage,
-  color = '#185adb'
+  color = '#38BDF8'
 }: HorizontalBarChartProps): React.JSX.Element {
   if (data.length === 0) return <p className="chart-empty">{emptyMessage}</p>
   const max = Math.max(...data.map((item) => item.value), 1)

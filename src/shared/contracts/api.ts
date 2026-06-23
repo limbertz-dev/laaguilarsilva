@@ -8,6 +8,7 @@ import type {
   ReporteResumen,
   ResumenCaja,
   Servicio,
+  EstadoRegistro,
   Vehiculo
 } from '../types/domain'
 import type {
@@ -33,6 +34,7 @@ export interface AppApi {
     crearConVehiculo: (input: ClienteConVehiculoInput) => Promise<Cliente>
     actualizar: (clienteId: number, input: ClienteInput) => Promise<Cliente>
     eliminar: (clienteId: number) => Promise<void>
+    cancelarEliminacion: (clienteId: number) => Promise<void>
     historial: (clienteId: number) => Promise<ClienteHistorial>
   }
   vehiculos: {
@@ -40,11 +42,13 @@ export interface AppApi {
     crear: (input: VehiculoInput) => Promise<Vehiculo>
     actualizar: (vehiculoId: number, input: VehiculoInput) => Promise<Vehiculo>
     eliminar: (vehiculoId: number) => Promise<void>
+    cancelarEliminacion: (vehiculoId: number) => Promise<void>
   }
   servicios: {
     listar: () => Promise<Servicio[]>
     crear: (input: ServicioInput) => Promise<Servicio>
     actualizar: (servicioId: number, input: ServicioInput) => Promise<Servicio>
+    cambiarEstado: (servicioId: number, estado: EstadoRegistro) => Promise<void>
     eliminar: (servicioId: number) => Promise<void>
   }
   empleados: {
@@ -52,6 +56,7 @@ export interface AppApi {
     crear: (input: EmpleadoInput) => Promise<Empleado>
     actualizar: (empleadoId: number, input: EmpleadoInput) => Promise<Empleado>
     eliminar: (empleadoId: number) => Promise<void>
+    cambiarEstado: (empleadoId: number, estado: EstadoRegistro) => Promise<void>
     pagarSalario: (empleadoId: number) => Promise<void>
   }
   inventario: {
@@ -59,6 +64,7 @@ export interface AppApi {
     crear: (input: InsumoInput) => Promise<Insumo>
     actualizar: (insumoId: number, input: InsumoUpdateInput) => Promise<Insumo>
     eliminar: (insumoId: number) => Promise<void>
+    cambiarEstado: (insumoId: number, estado: EstadoRegistro) => Promise<void>
     comprar: (input: CompraInsumoInput) => Promise<void>
   }
   ordenes: {

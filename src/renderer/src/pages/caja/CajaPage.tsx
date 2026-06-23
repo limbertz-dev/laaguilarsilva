@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { ResumenCaja } from '../../../../shared/types/domain'
 import { DataTable } from '../../components/ui/DataTable'
+import { DatePicker } from '../../components/ui/DatePicker'
 import { Modal } from '../../components/ui/Modal'
 import { useAppFeedback } from '../../hooks/useAppFeedback'
 import { cajaRepository } from '../../repositories/caja.repository'
 import { money } from '../../utils/format'
 import { formNumber, formText } from '../../utils/form'
+import { dateKey } from '../../utils/date'
 import { ReportesPage } from '../reportes/ReportesPage'
 import { categoriasCaja } from '../../../../shared/schemas/inputs'
 
@@ -14,11 +16,7 @@ function parseDatabaseDate(value: string): Date {
 }
 
 function localDateKey(value: string): string {
-  const date = parseDatabaseDate(value)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return dateKey(parseDatabaseDate(value))
 }
 
 export function CajaPage(): React.JSX.Element {
@@ -160,24 +158,11 @@ export function CajaPage(): React.JSX.Element {
               <strong>Historial de movimientos</strong>
               <span>{filteredMovements.length} registro(s)</span>
             </div>
-            <div className="cash-date-filter">
-              <label htmlFor="caja-fecha-filtro">Ver un día específico</label>
-              <input
-                id="caja-fecha-filtro"
-                type="date"
-                value={dateFilter}
-                onChange={(event) => setDateFilter(event.currentTarget.value)}
-              />
-              {dateFilter && (
-                <button
-                  type="button"
-                  className="button-secondary"
-                  onClick={() => setDateFilter('')}
-                >
-                  Quitar filtro
-                </button>
-              )}
-            </div>
+            <DatePicker
+              value={dateFilter}
+              onChange={setDateFilter}
+              label="Fecha seleccionada"
+            />
           </div>
 
           {filteredMovements.length > 0 ? (

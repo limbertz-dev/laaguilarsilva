@@ -9,6 +9,8 @@ export interface Cliente {
   nombre: string
   telefono: string
   creadoEn: string
+  estado: EstadoRegistro
+  eliminacionProgramadaEn: string | null
 }
 
 export interface ClienteHistorial {
@@ -26,6 +28,8 @@ export interface Vehiculo {
   color: string
   tipo: string
   observaciones: string
+  estado: EstadoRegistro
+  eliminacionProgramadaEn: string | null
 }
 
 export interface Servicio {
@@ -35,6 +39,7 @@ export interface Servicio {
   categoria: string
   precio: number
   estado: EstadoRegistro
+  eliminacionProgramadaEn: string | null
   insumos: ServicioInsumo[]
 }
 
@@ -53,6 +58,7 @@ export interface Empleado {
   cargo: string
   salario: number
   estado: EstadoRegistro
+  eliminacionProgramadaEn: string | null
 }
 
 export interface Insumo {
@@ -62,16 +68,15 @@ export interface Insumo {
   stockActual: number
   stockMinimo: number
   estado: EstadoRegistro
+  eliminacionProgramadaEn: string | null
 }
 
 export interface OrdenResumen {
   id: number
   vehiculoId: number
-  empleadoId: number
   servicioIds: number[]
   cliente: string
   placa: string
-  empleado: string
   descuento: number
   total: number
   estado: EstadoOrden

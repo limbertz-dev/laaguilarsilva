@@ -6,16 +6,19 @@ import {
   crearClienteConVehiculo,
   eliminarCliente,
   listarClientes,
-  obtenerHistorialCliente
+  obtenerHistorialCliente,
+  cancelarEliminacionCliente
 } from '../modules/clientes/service'
 import {
   actualizarVehiculo,
   crearVehiculo,
   eliminarVehiculo,
-  listarVehiculos
+  listarVehiculos,
+  cancelarEliminacionVehiculo
 } from '../modules/vehiculos/service'
 import {
   actualizarServicio,
+  cambiarEstadoServicio,
   crearServicio,
   eliminarServicio,
   listarServicios
@@ -25,14 +28,16 @@ import {
   crearEmpleado,
   eliminarEmpleado,
   listarEmpleados,
-  pagarSalario
+  pagarSalario,
+  cambiarEstadoEmpleado
 } from '../modules/empleados/service'
 import {
   actualizarInsumo,
   comprarInsumo,
   crearInsumo,
   eliminarInsumo,
-  listarInsumos
+  listarInsumos,
+  cambiarEstadoInsumo
 } from '../modules/inventario/service'
 import {
   actualizarOrden,
@@ -59,24 +64,31 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('clientes:crear-con-vehiculo', (_, input) => crearClienteConVehiculo(input))
   ipcMain.handle('clientes:actualizar', (_, id, input) => actualizarCliente(id, input))
   ipcMain.handle('clientes:eliminar', (_, id) => eliminarCliente(id))
+  ipcMain.handle('clientes:cancelar-eliminacion', (_, id) => cancelarEliminacionCliente(id))
   ipcMain.handle('clientes:historial', (_, id) => obtenerHistorialCliente(id))
   ipcMain.handle('vehiculos:listar', () => listarVehiculos())
   ipcMain.handle('vehiculos:crear', (_, input) => crearVehiculo(input))
   ipcMain.handle('vehiculos:actualizar', (_, id, input) => actualizarVehiculo(id, input))
   ipcMain.handle('vehiculos:eliminar', (_, id) => eliminarVehiculo(id))
+  ipcMain.handle('vehiculos:cancelar-eliminacion', (_, id) => cancelarEliminacionVehiculo(id))
   ipcMain.handle('servicios:listar', () => listarServicios())
   ipcMain.handle('servicios:crear', (_, input) => crearServicio(input))
   ipcMain.handle('servicios:actualizar', (_, id, input) => actualizarServicio(id, input))
+  ipcMain.handle('servicios:cambiar-estado', (_, id, estado) =>
+    cambiarEstadoServicio(id, estado)
+  )
   ipcMain.handle('servicios:eliminar', (_, id) => eliminarServicio(id))
   ipcMain.handle('empleados:listar', () => listarEmpleados())
   ipcMain.handle('empleados:crear', (_, input) => crearEmpleado(input))
   ipcMain.handle('empleados:actualizar', (_, id, input) => actualizarEmpleado(id, input))
   ipcMain.handle('empleados:eliminar', (_, id) => eliminarEmpleado(id))
+  ipcMain.handle('empleados:cambiar-estado', (_, id, estado) => cambiarEstadoEmpleado(id, estado))
   ipcMain.handle('empleados:pagar-salario', (_, id) => pagarSalario(id))
   ipcMain.handle('inventario:listar', () => listarInsumos())
   ipcMain.handle('inventario:crear', (_, input) => crearInsumo(input))
   ipcMain.handle('inventario:actualizar', (_, id, input) => actualizarInsumo(id, input))
   ipcMain.handle('inventario:eliminar', (_, id) => eliminarInsumo(id))
+  ipcMain.handle('inventario:cambiar-estado', (_, id, estado) => cambiarEstadoInsumo(id, estado))
   ipcMain.handle('inventario:comprar', (_, input) => comprarInsumo(input))
   ipcMain.handle('ordenes:listar', () => listarOrdenes())
   ipcMain.handle('ordenes:crear', (_, input) => crearOrden(input))

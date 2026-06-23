@@ -9,6 +9,7 @@ const api: AppApi = {
     crearConVehiculo: (input) => ipcRenderer.invoke('clientes:crear-con-vehiculo', input),
     actualizar: (clienteId, input) => ipcRenderer.invoke('clientes:actualizar', clienteId, input),
     eliminar: (clienteId) => ipcRenderer.invoke('clientes:eliminar', clienteId),
+    cancelarEliminacion: (clienteId) => ipcRenderer.invoke('clientes:cancelar-eliminacion', clienteId),
     historial: (clienteId) => ipcRenderer.invoke('clientes:historial', clienteId)
   },
   vehiculos: {
@@ -16,12 +17,15 @@ const api: AppApi = {
     crear: (input) => ipcRenderer.invoke('vehiculos:crear', input),
     actualizar: (vehiculoId, input) =>
       ipcRenderer.invoke('vehiculos:actualizar', vehiculoId, input),
-    eliminar: (vehiculoId) => ipcRenderer.invoke('vehiculos:eliminar', vehiculoId)
+    eliminar: (vehiculoId) => ipcRenderer.invoke('vehiculos:eliminar', vehiculoId),
+    cancelarEliminacion: (vehiculoId) => ipcRenderer.invoke('vehiculos:cancelar-eliminacion', vehiculoId)
   },
   servicios: {
     listar: () => ipcRenderer.invoke('servicios:listar'),
     crear: (input) => ipcRenderer.invoke('servicios:crear', input),
     actualizar: (servicioId, input) => ipcRenderer.invoke('servicios:actualizar', servicioId, input),
+    cambiarEstado: (servicioId, estado) =>
+      ipcRenderer.invoke('servicios:cambiar-estado', servicioId, estado),
     eliminar: (servicioId) => ipcRenderer.invoke('servicios:eliminar', servicioId)
   },
   empleados: {
@@ -29,6 +33,8 @@ const api: AppApi = {
     crear: (input) => ipcRenderer.invoke('empleados:crear', input),
     actualizar: (empleadoId, input) => ipcRenderer.invoke('empleados:actualizar', empleadoId, input),
     eliminar: (empleadoId) => ipcRenderer.invoke('empleados:eliminar', empleadoId),
+    cambiarEstado: (empleadoId, estado) =>
+      ipcRenderer.invoke('empleados:cambiar-estado', empleadoId, estado),
     pagarSalario: (empleadoId) => ipcRenderer.invoke('empleados:pagar-salario', empleadoId)
   },
   inventario: {
@@ -36,6 +42,8 @@ const api: AppApi = {
     crear: (input) => ipcRenderer.invoke('inventario:crear', input),
     actualizar: (insumoId, input) => ipcRenderer.invoke('inventario:actualizar', insumoId, input),
     eliminar: (insumoId) => ipcRenderer.invoke('inventario:eliminar', insumoId),
+    cambiarEstado: (insumoId, estado) =>
+      ipcRenderer.invoke('inventario:cambiar-estado', insumoId, estado),
     comprar: (input) => ipcRenderer.invoke('inventario:comprar', input)
   },
   ordenes: {

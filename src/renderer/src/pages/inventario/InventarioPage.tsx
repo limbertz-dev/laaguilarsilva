@@ -7,14 +7,14 @@ import { inventarioRepository } from '../../repositories/inventario.repository'
 import { formNumber, formText } from '../../utils/form'
 import { unidadesMedida } from '../../../../shared/schemas/inputs'
 
-type ActiveModal = 'insumo' | 'compra' | null
-
 export function InventarioPage(): React.JSX.Element {
   const [insumos, setInsumos] = useState<Insumo[]>([])
-  const [activeModal, setActiveModal] = useState<ActiveModal>(null)
+  const [activeModal, setActiveModal] = useState<'insumo' | 'compra' | null>(null)
   const [editingSupply, setEditingSupply] = useState<Insumo | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
+  const [supplyToDelete, setSupplyToDelete] = useState<Insumo | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { showMessage, clearMessage } = useAppFeedback()
 
   const load = useCallback(async () => setInsumos(await inventarioRepository.list()), [])
@@ -67,13 +67,36 @@ export function InventarioPage(): React.JSX.Element {
     setActiveModal('insumo')
   }
 
-  const deleteSupply = async (supply: Insumo): Promise<void> => {
-    if (!window.confirm(`¿Eliminar el insumo "${supply.nombre}"?`)) return
+  const deleteSupply = async (): Promise<void> => {
+    if (!supplyToDelete || isDeleting) return
+    setIsDeleting(true)
     try {
       clearMessage()
-      await inventarioRepository.delete(supply.id)
+      await inventarioRepository.delete(supplyToDelete.id)
+      setSupplyToDelete(null)
       await load()
       showMessage('Insumo eliminado')
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const changeSupplyStatus = async (supply: Insumo): Promise<void> => {
+    const nextStatus = supply.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
+    const isCancellingDeletion = supply.eliminacionProgramadaEn !== null
+    try {
+      clearMessage()
+      await inventarioRepository.cambiarEstado(supply.id, nextStatus)
+      await load()
+      showMessage(
+        isCancellingDeletion
+          ? 'Eliminación cancelada'
+          : nextStatus === 'ACTIVO'
+            ? 'Insumo activado'
+            : 'Insumo inactivado'
+      )
     } catch (error) {
       showMessage(error instanceof Error ? error.message : String(error))
     }
@@ -114,11 +137,7 @@ export function InventarioPage(): React.JSX.Element {
         >
           Nuevo insumo
         </button>
-        <button
-          className="button-secondary"
-          disabled={insumos.length === 0}
-          onClick={() => setActiveModal('compra')}
-        >
+        <button className="button-secondary" onClick={() => setActiveModal('compra')}>
           Registrar compra
         </button>
       </div>
@@ -135,7 +154,7 @@ export function InventarioPage(): React.JSX.Element {
               id="insumo-nombre"
               name="nombre"
               defaultValue={editingSupply?.nombre}
-              placeholder="Ej. Shampoo"
+              placeholder="Ej. Detergente concentrado"
               minLength={3}
               maxLength={60}
               required
@@ -143,24 +162,14 @@ export function InventarioPage(): React.JSX.Element {
           </div>
           <div className="field">
             <label htmlFor="insumo-unidad">Unidad de medida *</label>
-            <select
-              id="insumo-unidad"
-              name="unidad"
-              defaultValue={editingSupply?.unidad ?? 'Litro'}
-              required
-            >
-              {unidadesMedida.map((unit) => (
-                <option key={unit} value={unit}>
-                  {unit}
+            <select id="insumo-unidad" name="unidad" defaultValue={editingSupply?.unidad}>
+              {unidadesMedida.map((unidad) => (
+                <option key={unidad} value={unidad}>
+                  {unidad}
                 </option>
               ))}
             </select>
           </div>
-          {editingSupply && (
-            <p className="form-help">
-              El stock actual se modifica únicamente mediante compras y consumo de órdenes.
-            </p>
-          )}
           <div className="field">
             <label htmlFor="insumo-minimo">Stock mínimo *</label>
             <input
@@ -168,7 +177,8 @@ export function InventarioPage(): React.JSX.Element {
               name="stockMinimo"
               type="text"
               inputMode="decimal"
-              defaultValue={editingSupply?.stockMinimo ?? 1}
+              defaultValue={editingSupply?.stockMinimo}
+              placeholder="0"
               required
             />
           </div>
@@ -177,11 +187,7 @@ export function InventarioPage(): React.JSX.Element {
               Cancelar
             </button>
             <button disabled={isSaving}>
-              {isSaving
-                ? 'Guardando...'
-                : editingSupply
-                  ? 'Guardar cambios'
-                  : 'Guardar insumo'}
+              {isSaving ? 'Guardando...' : editingSupply ? 'Guardar cambios' : 'Guardar insumo'}
             </button>
           </div>
         </form>
@@ -189,19 +195,20 @@ export function InventarioPage(): React.JSX.Element {
 
       <Modal
         open={activeModal === 'compra'}
-        title="Registrar compra de insumo"
+        title="Registrar compra"
         onClose={() => setActiveModal(null)}
       >
         <form onSubmit={purchase}>
           <div className="field">
             <label htmlFor="compra-insumo">Insumo *</label>
             <select id="compra-insumo" name="insumoId" required>
-              <option value="">Seleccionar insumo</option>
-              {insumos.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nombre} — stock actual: {item.stockActual} {item.unidad}
-                </option>
-              ))}
+              {insumos
+                .filter((item) => item.estado === 'ACTIVO' && !item.eliminacionProgramadaEn)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nombre} ({item.unidad})
+                  </option>
+                ))}
             </select>
           </div>
           <div className="field">
@@ -226,7 +233,9 @@ export function InventarioPage(): React.JSX.Element {
               required
             />
           </div>
-          <p className="form-help">La compra aumenta el stock y registra automáticamente un egreso en caja.</p>
+          <p className="form-help">
+            La compra aumenta el stock y registra automáticamente un egreso en caja.
+          </p>
           <div className="modal-actions">
             <button type="button" className="button-secondary" onClick={() => setActiveModal(null)}>
               Cancelar
@@ -240,24 +249,75 @@ export function InventarioPage(): React.JSX.Element {
 
       <DataTable headers={['Insumo', 'Stock', 'Mínimo', 'Estado', 'Acciones']}>
         {insumos.map((item) => (
-          <tr key={item.id}>
+          <tr
+            key={item.id}
+            className={item.eliminacionProgramadaEn ? 'service-pending-delete' : undefined}
+          >
             <td>{item.nombre}</td>
             <td>
               {item.stockActual} {item.unidad}
             </td>
             <td>{item.stockMinimo}</td>
-            <td>{item.stockActual <= item.stockMinimo ? 'CRÍTICO' : 'OK'}</td>
+            <td>
+              {item.eliminacionProgramadaEn
+                ? 'ELIMINANDO'
+                : item.stockActual <= item.stockMinimo
+                  ? 'CRÍTICO'
+                  : 'OK'}
+            </td>
             <td>
               <div className="actions">
-                <button onClick={() => editSupply(item)}>Editar</button>
-                <button className="danger" onClick={() => deleteSupply(item)}>
-                  Eliminar
-                </button>
+                {item.eliminacionProgramadaEn ? (
+                  <button onClick={() => changeSupplyStatus(item)}>Cancelar eliminación</button>
+                ) : (
+                  <>
+                    <button onClick={() => editSupply(item)}>Editar</button>
+                    <button
+                      className={item.estado === 'ACTIVO' ? 'button-secondary' : ''}
+                      onClick={() => changeSupplyStatus(item)}
+                    >
+                      {item.estado === 'ACTIVO' ? 'Inactivar' : 'Activar'}
+                    </button>
+                    <button className="danger" onClick={() => setSupplyToDelete(item)}>
+                      Eliminar
+                    </button>
+                  </>
+                )}
               </div>
             </td>
           </tr>
         ))}
       </DataTable>
+
+      <Modal
+        open={supplyToDelete !== null}
+        title="Eliminar insumo"
+        onClose={() => {
+          if (!isDeleting) setSupplyToDelete(null)
+        }}
+      >
+        <p>
+          ¿Deseas eliminar el insumo
+          {supplyToDelete ? ` "${supplyToDelete.nombre}"` : ''}?
+        </p>
+        <p className="form-help">
+          El insumo quedará inactivo inmediatamente y se ocultará del inventario después de 24
+          horas. Durante ese tiempo se verá atenuado en esta tabla.
+        </p>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={isDeleting}
+            onClick={() => setSupplyToDelete(null)}
+          >
+            Cancelar
+          </button>
+          <button type="button" className="danger" disabled={isDeleting} onClick={deleteSupply}>
+            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </Modal>
     </section>
   )
 }

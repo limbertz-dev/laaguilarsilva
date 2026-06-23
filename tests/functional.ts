@@ -2,7 +2,7 @@ import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { DatabaseSync } from 'node:sqlite'
-import { closeDatabase, initializeDatabase } from '../src/main/database/connection'
+import { closeDatabase, getDatabase, initializeDatabase } from '../src/main/database/connection'
 import {
   actualizarCliente,
   crearCliente,
@@ -19,6 +19,7 @@ import {
 } from '../src/main/modules/vehiculos/service'
 import {
   actualizarServicio,
+  cambiarEstadoServicio,
   crearServicio,
   eliminarServicio,
   listarServicios
@@ -190,6 +191,30 @@ try {
     categoria: 'Exterior',
     precio: 10
   })
+  const servicioDescartable = crearServicio({
+    nombre: 'Servicio descartable',
+    descripcion: 'Sin historial',
+    categoria: 'Exterior',
+    precio: 5
+  })
+  eliminarServicio(servicioDescartable.id)
+  const servicioDescartableProgramado = listarServicios().find(
+    (item) => item.id === servicioDescartable.id
+  )
+  if (
+    servicioDescartableProgramado?.estado !== 'INACTIVO' ||
+    !servicioDescartableProgramado.eliminacionProgramadaEn
+  ) {
+    throw new Error('El servicio eliminado no quedó programado para ocultarse')
+  }
+  getDatabase()
+    .prepare(
+      "UPDATE servicios SET eliminacion_programada_en = datetime('now', '-1 minute') WHERE id = ?"
+    )
+    .run(servicioDescartable.id)
+  if (listarServicios().some((item) => item.id === servicioDescartable.id)) {
+    throw new Error('El servicio eliminado continúa visible después de vencer la programación')
+  }
   let servicioDuplicadoBloqueado = false
   try {
     crearServicio({
@@ -224,7 +249,6 @@ try {
   }
   const orden = crearOrden({
     vehiculoId: vehiculo.id,
-    empleadoId: empleado.id,
     servicioIds: [servicio.id],
     descuento: 0,
     metodoPago: 'QR'
@@ -271,7 +295,6 @@ try {
   })
   const ordenActualizada = actualizarOrden(orden.id, {
     vehiculoId: vehiculo.id,
-    empleadoId: empleado.id,
     servicioIds: [servicio.id],
     descuento: 2,
     metodoPago: 'QR'
@@ -282,7 +305,6 @@ try {
 
   const ordenParaEliminar = crearOrden({
     vehiculoId: vehiculo.id,
-    empleadoId: empleado.id,
     servicioIds: [servicio.id],
     descuento: 0,
     metodoPago: 'EFECTIVO'
@@ -305,7 +327,6 @@ try {
   })
   const ordenSinStock = crearOrden({
     vehiculoId: vehiculo.id,
-    empleadoId: empleado.id,
     servicioIds: [servicio.id],
     descuento: 0,
     metodoPago: 'EFECTIVO'
@@ -346,9 +367,23 @@ try {
   })
 
   eliminarServicio(servicio.id)
+  const servicioProgramado = listarServicios().find((item) => item.id === servicio.id)
+  if (servicioProgramado?.estado !== 'INACTIVO' || !servicioProgramado.eliminacionProgramadaEn) {
+    throw new Error('El servicio con historial no quedó programado para ocultarse')
+  }
+  cambiarEstadoServicio(servicio.id, 'ACTIVO')
+  const servicioReactivado = listarServicios().find((item) => item.id === servicio.id)
+  if (servicioReactivado?.estado !== 'ACTIVO' || servicioReactivado.eliminacionProgramadaEn) {
+    throw new Error('El servicio no pudo cancelar la eliminación y reactivarse')
+  }
+  cambiarEstadoServicio(servicio.id, 'INACTIVO')
   eliminarEmpleado(empleado.id)
   eliminarInsumo(insumo.id)
-  if (listarServicios().length || listarEmpleados().length || listarInsumos().length) {
+  if (
+    listarServicios().some((item) => item.estado === 'ACTIVO') ||
+    listarEmpleados().length ||
+    listarInsumos().length
+  ) {
     throw new Error('Los registros eliminados continúan en los catálogos activos')
   }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import type { Servicio } from '../../../../shared/types/domain'
 import { DataTable } from '../../components/ui/DataTable'
+import { AppIcon } from '../../components/ui/AppIcon'
 import { Modal } from '../../components/ui/Modal'
 import { useAppFeedback } from '../../hooks/useAppFeedback'
 import { serviciosRepository } from '../../repositories/servicios.repository'
@@ -15,8 +16,10 @@ export function ServiciosPage(): React.JSX.Element {
   const [insumos, setInsumos] = useState<Insumo[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingService, setEditingService] = useState<Servicio | null>(null)
+  const [serviceToDelete, setServiceToDelete] = useState<Servicio | null>(null)
   const [recipe, setRecipe] = useState<Record<number, string>>({})
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { showMessage, clearMessage } = useAppFeedback()
 
   const load = useCallback(async () => {
@@ -94,15 +97,38 @@ export function ServiciosPage(): React.JSX.Element {
     setModalOpen(true)
   }
 
-  const deleteService = async (service: Servicio): Promise<void> => {
-    if (!window.confirm(`¿Eliminar el servicio "${service.nombre}"?`)) return
+  const changeServiceStatus = async (service: Servicio): Promise<void> => {
+    const nextStatus = service.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
+    const isCancellingDeletion = service.eliminacionProgramadaEn !== null
     try {
       clearMessage()
-      await serviciosRepository.delete(service.id)
+      await serviciosRepository.changeStatus(service.id, nextStatus)
+      await load()
+      showMessage(
+        isCancellingDeletion
+          ? 'Eliminación cancelada'
+          : nextStatus === 'ACTIVO'
+            ? 'Servicio activado'
+            : 'Servicio inactivado'
+      )
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const deleteService = async (): Promise<void> => {
+    if (!serviceToDelete || isDeleting) return
+    setIsDeleting(true)
+    try {
+      clearMessage()
+      await serviciosRepository.delete(serviceToDelete.id)
+      setServiceToDelete(null)
       await load()
       showMessage('Servicio eliminado')
     } catch (error) {
       showMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -139,33 +165,51 @@ export function ServiciosPage(): React.JSX.Element {
             />
           </div>
           <fieldset className="recipe-fieldset">
-            <legend>Consumo de insumos por servicio</legend>
-            <small>Estas cantidades se descontarán automáticamente al completar una orden.</small>
+            <legend>
+              <span className="recipe-heading-icon">
+                <AppIcon name="inventory" size={20} />
+              </span>
+              <span>
+                <strong>Consumo de insumos</strong>
+                <small>Define cuánto se utiliza al completar una orden.</small>
+              </span>
+            </legend>
             {insumos.length === 0 ? (
               <span className="form-help">Primero registre insumos en Inventario.</span>
             ) : (
               <div className="recipe-grid">
-                {insumos.map((supply) => (
-                  <label className="recipe-item" key={supply.id}>
-                    <span>
-                      {supply.nombre} ({supply.unidad})
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={recipe[supply.id] ?? ''}
-                      placeholder="0"
-                      aria-label={`Cantidad de ${supply.nombre}`}
-                      onChange={(event) => {
-                        const value = event.currentTarget.value
-                        setRecipe((current) => ({
-                          ...current,
-                          [supply.id]: value
-                        }))
-                      }}
-                    />
-                  </label>
-                ))}
+                {insumos.map((supply) => {
+                  const quantity = recipe[supply.id] ?? ''
+                  const isActive = parseDecimal(quantity) > 0
+
+                  return (
+                    <label className={`recipe-item ${isActive ? 'active' : ''}`} key={supply.id}>
+                      <span className="recipe-item-copy">
+                        <strong>{supply.nombre}</strong>
+                        <small>
+                          Disponible: {supply.stockActual} {supply.unidad}
+                        </small>
+                      </span>
+                      <span className="recipe-quantity">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={quantity}
+                          placeholder="0"
+                          aria-label={`Cantidad de ${supply.nombre} en ${supply.unidad}`}
+                          onChange={(event) => {
+                            const value = event.currentTarget.value
+                            setRecipe((current) => ({
+                              ...current,
+                              [supply.id]: value
+                            }))
+                          }}
+                        />
+                        <span>{supply.unidad}</span>
+                      </span>
+                    </label>
+                  )
+                })}
               </div>
             )}
           </fieldset>
@@ -211,11 +255,7 @@ export function ServiciosPage(): React.JSX.Element {
               Cancelar
             </button>
             <button disabled={isSaving}>
-              {isSaving
-                ? 'Guardando...'
-                : editingService
-                  ? 'Guardar cambios'
-                  : 'Guardar servicio'}
+              {isSaving ? 'Guardando...' : editingService ? 'Guardar cambios' : 'Guardar servicio'}
             </button>
           </div>
         </form>
@@ -223,7 +263,10 @@ export function ServiciosPage(): React.JSX.Element {
 
       <DataTable headers={['Servicio', 'Categoría', 'Precio', 'Consumo', 'Estado', 'Acciones']}>
         {servicios.map((item) => (
-          <tr key={item.id}>
+          <tr
+            key={item.id}
+            className={item.eliminacionProgramadaEn ? 'service-pending-delete' : undefined}
+          >
             <td>{item.nombre}</td>
             <td>{item.categoria}</td>
             <td>{money.format(item.precio)}</td>
@@ -234,18 +277,64 @@ export function ServiciosPage(): React.JSX.Element {
                     .join(', ')
                 : 'Sin receta'}
             </td>
-            <td>{item.estado}</td>
+            <td>
+              <span className={`record-status ${item.estado.toLowerCase()}`}>
+                {item.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'}
+              </span>
+            </td>
             <td>
               <div className="actions">
-                <button onClick={() => editService(item)}>Editar</button>
-                <button className="danger" onClick={() => deleteService(item)}>
-                  Eliminar
-                </button>
+                {item.eliminacionProgramadaEn ? (
+                  <button onClick={() => changeServiceStatus(item)}>Cancelar eliminación</button>
+                ) : (
+                  <>
+                    <button onClick={() => editService(item)}>Editar</button>
+                    <button
+                      className={item.estado === 'ACTIVO' ? 'button-secondary' : ''}
+                      onClick={() => changeServiceStatus(item)}
+                    >
+                      {item.estado === 'ACTIVO' ? 'Inactivar' : 'Activar'}
+                    </button>
+                    <button className="danger" onClick={() => setServiceToDelete(item)}>
+                      Eliminar
+                    </button>
+                  </>
+                )}
               </div>
             </td>
           </tr>
         ))}
       </DataTable>
+
+      <Modal
+        open={serviceToDelete !== null}
+        title="Eliminar servicio"
+        onClose={() => {
+          if (!isDeleting) setServiceToDelete(null)
+        }}
+      >
+        <p>
+          ¿Deseas eliminar este servicio
+          {serviceToDelete ? ` "${serviceToDelete.nombre}"` : ''}?
+        </p>
+        <p className="form-help">
+          El servicio quedará inactivo inmediatamente y se ocultará del catálogo después de 24
+          horas. Durante ese tiempo se verá atenuado en esta tabla.
+        </p>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={isDeleting}
+            onClick={() => setServiceToDelete(null)}
+          >
+            Cancelar
+          </button>
+          <button type="button" className="danger" disabled={isDeleting} onClick={deleteService}>
+            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </Modal>
     </section>
   )
 }

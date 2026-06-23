@@ -25,6 +25,10 @@ export function ClientesPage(): React.JSX.Element {
   const [vehiclePresence, setVehiclePresence] = useState('TODOS')
   const [vehicleOwnerId, setVehicleOwnerId] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null)
+  const [isDeletingClient, setIsDeletingClient] = useState(false)
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehiculo | null>(null)
+  const [isDeletingVehicle, setIsDeletingVehicle] = useState(false)
   const { showMessage, clearMessage } = useAppFeedback()
 
   const load = useCallback(async () => {
@@ -63,8 +67,8 @@ export function ClientesPage(): React.JSX.Element {
       const matchesVehicle =
         !vehicleQuery ||
         clientVehicles.some((vehicle) =>
-          [vehicle.placa, vehicle.marca, vehicle.modelo, vehicle.color, vehicle.tipo].some((value) =>
-            value.toLocaleLowerCase().includes(vehicleQuery)
+          [vehicle.placa, vehicle.marca, vehicle.modelo, vehicle.color, vehicle.tipo].some(
+            (value) => value.toLocaleLowerCase().includes(vehicleQuery)
           )
         )
       const matchesPresence =
@@ -200,26 +204,63 @@ export function ClientesPage(): React.JSX.Element {
     setVehicleOwnerId('')
   }
 
-  const deleteClient = async (client: Cliente): Promise<void> => {
-    if (!window.confirm(`¿Eliminar al cliente "${client.nombre}"?`)) return
+  const deleteClient = (client: Cliente): void => {
+    setClientToDelete(client)
+  }
+
+  const deleteClientConfirmed = async (): Promise<void> => {
+    if (!clientToDelete || isDeletingClient) return
+    setIsDeletingClient(true)
     try {
       clearMessage()
-      await clientesRepository.delete(client.id)
+      await clientesRepository.delete(clientToDelete.id)
+      setClientToDelete(null)
       await load()
-      showMessage('Cliente eliminado')
+      showMessage('Cliente en proceso de eliminación')
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsDeletingClient(false)
+    }
+  }
+
+  const cancelClientDeletion = async (client: Cliente): Promise<void> => {
+    try {
+      clearMessage()
+      await clientesRepository.cancelarEliminacion(client.id)
+      await load()
+      showMessage('Eliminación de cliente cancelada')
     } catch (error) {
       showMessage(error instanceof Error ? error.message : String(error))
     }
   }
 
-  const deleteVehicle = async (vehicle: Vehiculo): Promise<void> => {
-    if (!window.confirm(`¿Eliminar el vehículo con placa ${vehicle.placa}?`)) return
+  const deleteVehicle = (vehicle: Vehiculo): void => {
+    setVehicleToDelete(vehicle)
+  }
+
+  const deleteVehicleConfirmed = async (): Promise<void> => {
+    if (!vehicleToDelete || isDeletingVehicle) return
+    setIsDeletingVehicle(true)
     try {
       clearMessage()
-      await vehiculosRepository.delete(vehicle.id)
+      await vehiculosRepository.delete(vehicleToDelete.id)
+      setVehicleToDelete(null)
       await load()
-      closeVehicleDetails()
-      showMessage('Vehículo eliminado')
+      showMessage('Vehículo en proceso de eliminación')
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsDeletingVehicle(false)
+    }
+  }
+
+  const cancelVehicleDeletion = async (vehicle: Vehiculo): Promise<void> => {
+    try {
+      clearMessage()
+      await vehiculosRepository.cancelarEliminacion(vehicle.id)
+      await load()
+      showMessage('Eliminación de vehículo cancelada')
     } catch (error) {
       showMessage(error instanceof Error ? error.message : String(error))
     }
@@ -397,7 +438,9 @@ export function ClientesPage(): React.JSX.Element {
                       rows={3}
                       maxLength={250}
                     />
-                    <small>Registra daños o condiciones visibles antes de recibir el vehículo.</small>
+                    <small>
+                      Registra daños o condiciones visibles antes de recibir el vehículo.
+                    </small>
                   </div>
                 </fieldset>
               )}
@@ -436,7 +479,7 @@ export function ClientesPage(): React.JSX.Element {
               required
             >
               <option value="">Seleccionar cliente</option>
-              {clientes.map((item) => (
+              {clientes.filter((item) => item.estado === 'ACTIVO').map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.nombre}
                 </option>
@@ -523,11 +566,7 @@ export function ClientesPage(): React.JSX.Element {
               Cancelar
             </button>
             <button disabled={isSaving}>
-              {isSaving
-                ? 'Guardando...'
-                : editingVehicle
-                  ? 'Guardar cambios'
-                  : 'Guardar vehículo'}
+              {isSaving ? 'Guardando...' : editingVehicle ? 'Guardar cambios' : 'Guardar vehículo'}
             </button>
           </div>
         </form>
@@ -583,7 +622,10 @@ export function ClientesPage(): React.JSX.Element {
               <button
                 type="button"
                 className="danger"
-                onClick={() => deleteVehicle(selectedVehicle)}
+                onClick={() => {
+                  closeVehicleDetails()
+                  deleteVehicle(selectedVehicle)
+                }}
               >
                 Eliminar
               </button>
@@ -608,7 +650,10 @@ export function ClientesPage(): React.JSX.Element {
           const history = clientHistories[cliente.id]
 
           return (
-            <tr key={cliente.id}>
+            <tr
+              key={cliente.id}
+              className={cliente.eliminacionProgramadaEn ? 'service-pending-delete' : undefined}
+            >
               <td>
                 <strong>{cliente.nombre}</strong>
               </td>
@@ -617,15 +662,24 @@ export function ClientesPage(): React.JSX.Element {
                 {clientVehicles.length > 0 ? (
                   <div className="vehicle-list">
                     {clientVehicles.map((vehicle) => (
-                      <article className="vehicle-summary" key={vehicle.id}>
+                      <article
+                        className={`vehicle-summary ${vehicle.eliminacionProgramadaEn ? 'vehicle-pending-delete' : ''}`}
+                        key={vehicle.id}
+                      >
                         <strong>{vehicle.placa}</strong>
                         <span>
                           {vehicle.marca} {vehicle.modelo}
                         </span>
                         <div className="actions vehicle-actions">
-                          <button type="button" onClick={() => viewVehicle(vehicle)}>
-                            Ver datos
-                          </button>
+                          {!cliente.eliminacionProgramadaEn && vehicle.estado === 'INACTIVO' ? (
+                            <button type="button" onClick={() => cancelVehicleDeletion(vehicle)}>
+                              Cancelar eliminación
+                            </button>
+                          ) : !cliente.eliminacionProgramadaEn && vehicle.estado === 'ACTIVO' ? (
+                            <button type="button" onClick={() => viewVehicle(vehicle)}>
+                              Ver datos
+                            </button>
+                          ) : null}
                         </div>
                       </article>
                     ))}
@@ -643,17 +697,95 @@ export function ClientesPage(): React.JSX.Element {
               </td>
               <td>
                 <div className="actions client-actions">
-                  <button onClick={() => openVehicleModal(cliente.id)}>Agregar vehículo</button>
-                  <button onClick={() => openClientModal(cliente)}>Editar cliente</button>
-                  <button className="danger" onClick={() => deleteClient(cliente)}>
-                    Eliminar cliente
-                  </button>
+                  {cliente.eliminacionProgramadaEn ? (
+                    <button onClick={() => cancelClientDeletion(cliente)}>
+                      Cancelar eliminación
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={() => openVehicleModal(cliente.id)}>Agregar vehículo</button>
+                      <button onClick={() => openClientModal(cliente)}>Editar cliente</button>
+                      <button className="danger" onClick={() => deleteClient(cliente)}>
+                        Eliminar cliente
+                      </button>
+                    </>
+                  )}
                 </div>
               </td>
             </tr>
           )
         })}
       </DataTable>
+
+      <Modal
+        open={clientToDelete !== null}
+        title="Eliminar cliente"
+        onClose={() => {
+          if (!isDeletingClient) setClientToDelete(null)
+        }}
+      >
+        <p>
+          ¿Deseas eliminar al cliente
+          {clientToDelete ? ` "${clientToDelete.nombre}"` : ''}?
+        </p>
+        <p className="form-help">
+          El cliente quedará inactivo inmediatamente y se ocultará después de 24 horas. Durante ese
+          tiempo se verá atenuado en esta tabla.
+        </p>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={isDeletingClient}
+            onClick={() => setClientToDelete(null)}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="danger"
+            disabled={isDeletingClient}
+            onClick={deleteClientConfirmed}
+          >
+            {isDeletingClient ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={vehicleToDelete !== null}
+        title="Eliminar vehículo"
+        onClose={() => {
+          if (!isDeletingVehicle) setVehicleToDelete(null)
+        }}
+      >
+        <p>
+          ¿Deseas eliminar el vehículo
+          {vehicleToDelete ? ` "${vehicleToDelete.placa}"` : ''}?
+        </p>
+        <p className="form-help">
+          El vehículo quedará inactivo inmediatamente y se ocultará después de 24 horas. Durante ese
+          tiempo se verá atenuado en esta tabla.
+        </p>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={isDeletingVehicle}
+            onClick={() => setVehicleToDelete(null)}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="danger"
+            disabled={isDeletingVehicle}
+            onClick={deleteVehicleConfirmed}
+          >
+            {isDeletingVehicle ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </Modal>
     </section>
   )
 }

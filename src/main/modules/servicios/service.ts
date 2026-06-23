@@ -64,8 +64,11 @@ function guardarReceta(servicioId: number, insumos: ServicioInput['insumos']): v
 export function listarServicios(): Servicio[] {
   const rows = getDatabase()
     .prepare(
-      `SELECT id, nombre, descripcion, categoria, precio_centavos AS precioCentavos, estado
-       FROM servicios WHERE estado = 'ACTIVO' ORDER BY nombre`
+      `SELECT id, nombre, descripcion, categoria, precio_centavos AS precioCentavos, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM servicios
+       WHERE eliminacion_programada_en IS NULL OR datetime(eliminacion_programada_en) > datetime('now')
+       ORDER BY estado, nombre`
     )
     .all() as unknown as ServicioRow[]
   return rows.map(mapServicio)
@@ -85,7 +88,8 @@ export function crearServicio(input: ServicioInput): Servicio {
     guardarReceta(servicioId, data.insumos)
     const row = getDatabase()
       .prepare(
-        `SELECT id, nombre, descripcion, categoria, precio_centavos AS precioCentavos, estado
+        `SELECT id, nombre, descripcion, categoria, precio_centavos AS precioCentavos, estado,
+                eliminacion_programada_en AS eliminacionProgramadaEn
          FROM servicios WHERE id = ?`
       )
       .get(servicioId) as unknown as ServicioRow
@@ -100,8 +104,9 @@ export function actualizarServicio(servicioId: number, input: ServicioInput): Se
     const result = getDatabase()
       .prepare(
         `UPDATE servicios
-         SET nombre = ?, descripcion = ?, categoria = ?, precio_centavos = ?
-         WHERE id = ? AND estado = 'ACTIVO'`
+         SET nombre = ?, descripcion = ?, categoria = ?, precio_centavos = ?,
+             eliminacion_programada_en = NULL
+         WHERE id = ?`
       )
       .run(data.nombre, data.descripcion, data.categoria, toCents(data.precio), servicioId)
     if (result.changes === 0) throw new Error('Servicio no encontrado')
@@ -109,7 +114,8 @@ export function actualizarServicio(servicioId: number, input: ServicioInput): Se
     guardarReceta(servicioId, data.insumos)
     const row = getDatabase()
       .prepare(
-        `SELECT id, nombre, descripcion, categoria, precio_centavos AS precioCentavos, estado
+        `SELECT id, nombre, descripcion, categoria, precio_centavos AS precioCentavos, estado,
+                eliminacion_programada_en AS eliminacionProgramadaEn
          FROM servicios WHERE id = ?`
       )
       .get(servicioId) as unknown as ServicioRow
@@ -130,19 +136,28 @@ function validarNombreDisponible(nombre: string, servicioId?: number): void {
 }
 
 export function eliminarServicio(servicioId: number): void {
-  const pendiente = getDatabase()
-    .prepare(
-      `SELECT 1
-       FROM orden_servicios os
-       JOIN ordenes o ON o.id = os.orden_id
-       WHERE os.servicio_id = ? AND o.estado = 'PENDIENTE'
-       LIMIT 1`
-    )
-    .get(servicioId)
-  if (pendiente) throw new Error('No se puede eliminar: el servicio está en una orden pendiente')
-
   const result = getDatabase()
-    .prepare("UPDATE servicios SET estado = 'INACTIVO' WHERE id = ? AND estado = 'ACTIVO'")
+    .prepare(
+      `UPDATE servicios
+       SET estado = 'INACTIVO',
+           eliminacion_programada_en = datetime('now', '+24 hours')
+       WHERE id = ?`
+    )
     .run(servicioId)
-  if (result.changes === 0) throw new Error('Servicio activo no encontrado')
+  if (result.changes === 0) throw new Error('Servicio no encontrado')
+}
+
+export function cambiarEstadoServicio(
+  servicioId: number,
+  estado: 'ACTIVO' | 'INACTIVO'
+): void {
+  const result = getDatabase()
+    .prepare(
+      `UPDATE servicios
+       SET estado = ?,
+           eliminacion_programada_en = CASE WHEN ? = 'ACTIVO' THEN NULL ELSE eliminacion_programada_en END
+       WHERE id = ? AND (estado <> ? OR (? = 'ACTIVO' AND eliminacion_programada_en IS NOT NULL))`
+    )
+    .run(estado, estado, servicioId, estado, estado)
+  if (result.changes === 0) throw new Error('Servicio no encontrado o sin cambios')
 }

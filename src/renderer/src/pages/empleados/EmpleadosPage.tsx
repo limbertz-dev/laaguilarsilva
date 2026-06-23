@@ -13,6 +13,8 @@ export function EmpleadosPage(): React.JSX.Element {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<Empleado | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [employeeToDelete, setEmployeeToDelete] = useState<Empleado | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { showMessage, clearMessage } = useAppFeedback()
 
   const load = useCallback(async () => setEmpleados(await empleadosRepository.list()), [])
@@ -41,8 +43,7 @@ export function EmpleadosPage(): React.JSX.Element {
         salario: formNumber(data, 'salario')
       }
       const repeatedPhone = empleados.some(
-        (employee) =>
-          employee.telefono === input.telefono && employee.id !== editingEmployee?.id
+        (employee) => employee.telefono === input.telefono && employee.id !== editingEmployee?.id
       )
       if (
         repeatedPhone &&
@@ -77,13 +78,36 @@ export function EmpleadosPage(): React.JSX.Element {
     setModalOpen(true)
   }
 
-  const deleteEmployee = async (employee: Empleado): Promise<void> => {
-    if (!window.confirm(`¿Eliminar al empleado ${employee.nombres} ${employee.apellidos}?`)) return
+  const deleteEmployee = async (): Promise<void> => {
+    if (!employeeToDelete || isDeleting) return
+    setIsDeleting(true)
     try {
       clearMessage()
-      await empleadosRepository.delete(employee.id)
+      await empleadosRepository.delete(employeeToDelete.id)
+      setEmployeeToDelete(null)
       await load()
       showMessage('Empleado eliminado')
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const changeEmployeeStatus = async (employee: Empleado): Promise<void> => {
+    const nextStatus = employee.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
+    const isCancellingDeletion = employee.eliminacionProgramadaEn !== null
+    try {
+      clearMessage()
+      await empleadosRepository.cambiarEstado(employee.id, nextStatus)
+      await load()
+      showMessage(
+        isCancellingDeletion
+          ? 'Eliminación cancelada'
+          : nextStatus === 'ACTIVO'
+            ? 'Empleado activado'
+            : 'Empleado inactivado'
+      )
     } catch (error) {
       showMessage(error instanceof Error ? error.message : String(error))
     }
@@ -124,8 +148,7 @@ export function EmpleadosPage(): React.JSX.Element {
               id="empleado-nombres"
               name="nombres"
               defaultValue={editingEmployee?.nombres}
-              minLength={2}
-              maxLength={50}
+              placeholder="Ej. Juan"
               required
             />
           </div>
@@ -135,8 +158,7 @@ export function EmpleadosPage(): React.JSX.Element {
               id="empleado-apellidos"
               name="apellidos"
               defaultValue={editingEmployee?.apellidos}
-              minLength={2}
-              maxLength={60}
+              placeholder="Ej. Pérez"
               required
             />
           </div>
@@ -145,25 +167,18 @@ export function EmpleadosPage(): React.JSX.Element {
             <input
               id="empleado-telefono"
               name="telefono"
+              type="tel"
               defaultValue={editingEmployee?.telefono}
-              inputMode="numeric"
-              pattern="[0-9]{8}"
-              maxLength={8}
+              placeholder="Ej. 70000000"
               required
             />
-            <small>Debe tener 8 dígitos; normalmente comienza con 6 o 7.</small>
           </div>
           <div className="field">
             <label htmlFor="empleado-cargo">Cargo *</label>
-            <select
-              id="empleado-cargo"
-              name="cargo"
-              defaultValue={editingEmployee?.cargo ?? 'Lavador'}
-              required
-            >
-              {cargosEmpleado.map((role) => (
-                <option key={role} value={role}>
-                  {role}
+            <select id="empleado-cargo" name="cargo" defaultValue={editingEmployee?.cargo}>
+              {cargosEmpleado.map((cargo) => (
+                <option key={cargo} value={cargo}>
+                  {cargo}
                 </option>
               ))}
             </select>
@@ -185,39 +200,73 @@ export function EmpleadosPage(): React.JSX.Element {
               Cancelar
             </button>
             <button disabled={isSaving}>
-              {isSaving
-                ? 'Guardando...'
-                : editingEmployee
-                  ? 'Guardar cambios'
-                  : 'Guardar empleado'}
+              {isSaving ? 'Guardando...' : editingEmployee ? 'Guardar cambios' : 'Guardar empleado'}
             </button>
           </div>
         </form>
       </Modal>
 
       <DataTable
-        headers={['Nombres', 'Apellidos', 'Teléfono', 'Cargo', 'Salario', 'Estado', 'Acciones']}
+        headers={['Nombres', 'Apellidos', 'Teléfono', 'Cargo', 'Salario', 'Acciones']}
       >
         {empleados.map((item) => (
-          <tr key={item.id}>
+          <tr
+            key={item.id}
+            className={item.eliminacionProgramadaEn ? 'service-pending-delete' : undefined}
+          >
             <td>{item.nombres}</td>
             <td>{item.apellidos}</td>
             <td>{item.telefono}</td>
             <td>{item.cargo}</td>
             <td>{money.format(item.salario)}</td>
-            <td>{item.estado}</td>
             <td>
               <div className="actions">
-                <button onClick={() => editEmployee(item)}>Editar</button>
-                <button onClick={() => paySalary(item.id)}>Pagar salario</button>
-                <button className="danger" onClick={() => deleteEmployee(item)}>
-                  Eliminar
-                </button>
+                {item.eliminacionProgramadaEn ? (
+                  <button onClick={() => changeEmployeeStatus(item)}>Cancelar eliminación</button>
+                ) : (
+                  <>
+                    <button onClick={() => editEmployee(item)}>Editar</button>
+                    <button onClick={() => paySalary(item.id)}>Pagar salario</button>
+                    <button className="danger" onClick={() => setEmployeeToDelete(item)}>
+                      Eliminar
+                    </button>
+                  </>
+                )}
               </div>
             </td>
           </tr>
         ))}
       </DataTable>
+
+      <Modal
+        open={employeeToDelete !== null}
+        title="Eliminar empleado"
+        onClose={() => {
+          if (!isDeleting) setEmployeeToDelete(null)
+        }}
+      >
+        <p>
+          ¿Deseas eliminar al empleado
+          {employeeToDelete ? ` "${employeeToDelete.nombres} ${employeeToDelete.apellidos}"` : ''}?
+        </p>
+        <p className="form-help">
+          El empleado quedará inactivo inmediatamente y se ocultará después de 24 horas. Durante ese
+          tiempo se verá atenuado en esta tabla.
+        </p>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={isDeleting}
+            onClick={() => setEmployeeToDelete(null)}
+          >
+            Cancelar
+          </button>
+          <button type="button" className="danger" disabled={isDeleting} onClick={deleteEmployee}>
+            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </Modal>
     </section>
   )
 }

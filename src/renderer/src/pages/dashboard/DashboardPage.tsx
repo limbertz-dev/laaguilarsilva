@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Dashboard } from '../../../../shared/types/domain'
 import {
+  BalanceChart,
   ComparisonChart,
   HorizontalBarChart,
   LineChart
@@ -8,6 +9,7 @@ import {
 import { useAppFeedback } from '../../hooks/useAppFeedback'
 import { dashboardRepository } from '../../repositories/dashboard.repository'
 import { money } from '../../utils/format'
+import { AppIcon } from '../../components/ui/AppIcon'
 
 function financialAnswer(result: number): { title: string; detail: string; tone: string } {
   if (result > 0) {
@@ -58,24 +60,52 @@ export function DashboardPage(): React.JSX.Element {
 
       <div className="cards dashboard-kpis">
         <article>
-          <strong>{dashboard.autosAtendidosHoy}</strong>
-          <span>Autos atendidos hoy</span>
+          <span className="kpi-icon">
+            <AppIcon name="car" size={27} />
+          </span>
+          <div>
+            <span>Autos atendidos hoy</span>
+            <strong>{dashboard.autosAtendidosHoy}</strong>
+            <small>Vehículos entregados</small>
+          </div>
         </article>
         <article>
-          <strong>{money.format(dashboard.facturacionHoy)}</strong>
-          <span>Facturación de hoy</span>
+          <span className="kpi-icon">
+            <AppIcon name="receipt" size={27} />
+          </span>
+          <div>
+            <span>Facturación de hoy</span>
+            <strong>{money.format(dashboard.facturacionHoy)}</strong>
+            <small>Ingresos por servicios</small>
+          </div>
         </article>
         <article>
-          <strong>{dashboard.servicioMasVendido?.nombre ?? 'Sin ventas'}</strong>
-          <span>Servicio más vendido hoy</span>
+          <span className="kpi-icon">
+            <AppIcon name="award" size={27} />
+          </span>
+          <div>
+            <span>Servicio más vendido hoy</span>
+            <strong>{dashboard.servicioMasVendido?.nombre ?? 'Sin ventas'}</strong>
+            <small>
+              {dashboard.servicioMasVendido
+                ? `${dashboard.servicioMasVendido.cantidad} venta(s)`
+                : 'Sin actividad'}
+            </small>
+          </div>
         </article>
         <article>
-          <strong>
-            {dashboard.shampooConsumido
-              ? `${dashboard.shampooConsumido.cantidad} ${dashboard.shampooConsumido.unidad}`
-              : 'Sin consumo'}
-          </strong>
-          <span>Shampoo consumido hoy</span>
+          <span className="kpi-icon">
+            <AppIcon name="bottle" size={27} />
+          </span>
+          <div>
+            <span>Shampoo consumido hoy</span>
+            <strong>
+              {dashboard.shampooConsumido
+                ? `${dashboard.shampooConsumido.cantidad} ${dashboard.shampooConsumido.unidad}`
+                : 'Sin consumo'}
+            </strong>
+            <small>Consumo registrado</small>
+          </div>
         </article>
       </div>
 
@@ -110,7 +140,7 @@ export function DashboardPage(): React.JSX.Element {
               label: item.etiqueta,
               value: item.facturacion
             }))}
-            color="#7c3aed"
+            color="#0284C7"
             formatValue={(value) => money.format(value)}
           />
         </article>
@@ -145,7 +175,7 @@ export function DashboardPage(): React.JSX.Element {
               value: item.cantidad,
               suffix: item.unidad
             }))}
-            color="#0891b2"
+            color="#38BDF8"
             emptyMessage="Configure recetas de servicios para registrar consumos."
           />
         </article>
@@ -165,6 +195,22 @@ export function DashboardPage(): React.JSX.Element {
             }))}
             firstLabel="Ingresos"
             secondLabel="Egresos"
+            formatValue={(value) => money.format(value)}
+          />
+        </article>
+
+        <article className="chart-card chart-wide">
+          <header>
+            <div>
+              <h3>Resultado diario</h3>
+              <p>Diferencia entre ingresos y egresos de los últimos 7 días</p>
+            </div>
+          </header>
+          <BalanceChart
+            data={dashboard.actividadSemanal.map((item) => ({
+              label: item.etiqueta,
+              value: item.ingresos - item.egresos
+            }))}
             formatValue={(value) => money.format(value)}
           />
         </article>

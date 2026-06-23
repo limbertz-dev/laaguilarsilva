@@ -6,8 +6,11 @@ import { toId } from '../shared'
 export function listarVehiculos(): Vehiculo[] {
   return getDatabase()
     .prepare(
-      `SELECT id, cliente_id AS clienteId, placa, marca, modelo, color, tipo, observaciones
-              FROM vehiculos ORDER BY placa`
+      `SELECT id, cliente_id AS clienteId, placa, marca, modelo, color, tipo, observaciones, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM vehiculos
+       WHERE eliminacion_programada_en IS NULL OR datetime(eliminacion_programada_en) > datetime('now')
+       ORDER BY placa`
     )
     .all() as unknown as Vehiculo[]
 }
@@ -33,7 +36,8 @@ export function crearVehiculo(input: VehiculoInput): Vehiculo {
     )
   return getDatabase()
     .prepare(
-      `SELECT id, cliente_id AS clienteId, placa, marca, modelo, color, tipo, observaciones
+      `SELECT id, cliente_id AS clienteId, placa, marca, modelo, color, tipo, observaciones, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
        FROM vehiculos WHERE id = ?`
     )
     .get(toId(result.lastInsertRowid)) as unknown as Vehiculo
@@ -65,21 +69,34 @@ export function actualizarVehiculo(vehiculoId: number, input: VehiculoInput): Ve
 
   return getDatabase()
     .prepare(
-      `SELECT id, cliente_id AS clienteId, placa, marca, modelo, color, tipo, observaciones
+      `SELECT id, cliente_id AS clienteId, placa, marca, modelo, color, tipo, observaciones, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
        FROM vehiculos WHERE id = ?`
     )
     .get(vehiculoId) as unknown as Vehiculo
 }
 
 export function eliminarVehiculo(vehiculoId: number): void {
-  const orden = getDatabase()
-    .prepare('SELECT 1 FROM ordenes WHERE vehiculo_id = ? LIMIT 1')
-    .get(vehiculoId)
-  if (orden) {
-    throw new Error('No se puede eliminar: el vehículo tiene órdenes registradas')
-  }
+  const result = getDatabase()
+    .prepare(
+      `UPDATE vehiculos
+       SET estado = 'INACTIVO',
+           eliminacion_programada_en = datetime('now', '+24 hours')
+       WHERE id = ?`
+    )
+    .run(vehiculoId)
+  if (result.changes === 0) throw new Error('Vehículo no encontrado')
+}
 
-  const result = getDatabase().prepare('DELETE FROM vehiculos WHERE id = ?').run(vehiculoId)
+export function cancelarEliminacionVehiculo(vehiculoId: number): void {
+  const result = getDatabase()
+    .prepare(
+      `UPDATE vehiculos
+       SET estado = 'ACTIVO',
+           eliminacion_programada_en = NULL
+       WHERE id = ?`
+    )
+    .run(vehiculoId)
   if (result.changes === 0) throw new Error('Vehículo no encontrado')
 }
 

@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type {
-  Empleado,
   Insumo,
   OrdenResumen,
   Servicio,
   Vehiculo
 } from '../../../../shared/types/domain'
 import { DataTable } from '../../components/ui/DataTable'
+import { AppIcon } from '../../components/ui/AppIcon'
+import { DatePicker } from '../../components/ui/DatePicker'
 import { Modal } from '../../components/ui/Modal'
 import { useAppFeedback } from '../../hooks/useAppFeedback'
-import { empleadosRepository } from '../../repositories/empleados.repository'
 import { inventarioRepository } from '../../repositories/inventario.repository'
 import { ordenesRepository } from '../../repositories/ordenes.repository'
 import { serviciosRepository } from '../../repositories/servicios.repository'
 import { vehiculosRepository } from '../../repositories/vehiculos.repository'
 import { money } from '../../utils/format'
 import { formNumber, formText, parseDecimal } from '../../utils/form'
+import { dateKey } from '../../utils/date'
 
 function parseDatabaseDate(value: string): Date {
   return new Date(`${value.replace(' ', 'T')}Z`)
@@ -23,16 +24,12 @@ function parseDatabaseDate(value: string): Date {
 
 function localDateKey(value: string): string {
   const date = parseDatabaseDate(value)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return dateKey(date)
 }
 
 export function OrdenesPage(): React.JSX.Element {
   const [ordenes, setOrdenes] = useState<OrdenResumen[]>([])
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
-  const [empleados, setEmpleados] = useState<Empleado[]>([])
   const [servicios, setServicios] = useState<Servicio[]>([])
   const [insumos, setInsumos] = useState<Insumo[]>([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -44,17 +41,15 @@ export function OrdenesPage(): React.JSX.Element {
   const { showMessage, clearMessage } = useAppFeedback()
 
   const load = useCallback(async () => {
-    const [orders, vehicles, employees, services, supplies] = await Promise.all([
+    const [orders, vehicles, services, supplies] = await Promise.all([
       ordenesRepository.list(),
       vehiculosRepository.list(),
-      empleadosRepository.list(),
       serviciosRepository.list(),
       inventarioRepository.list()
     ])
     setOrdenes(orders)
     setVehiculos(vehicles)
-    setEmpleados(employees)
-    setServicios(services)
+    setServicios(services.filter((service) => service.estado === 'ACTIVO'))
     setInsumos(supplies)
   }, [])
 
@@ -101,8 +96,7 @@ export function OrdenesPage(): React.JSX.Element {
         : ordenes,
     [dateFilter, ordenes]
   )
-  const prerequisitesReady =
-    vehiculos.length > 0 && empleados.length > 0 && servicios.length > 0
+  const prerequisitesReady = vehiculos.length > 0 && servicios.length > 0
 
   const closeModal = (): void => {
     setModalOpen(false)
@@ -135,8 +129,7 @@ export function OrdenesPage(): React.JSX.Element {
       clearMessage()
       const input = {
         vehiculoId: formNumber(data, 'vehiculoId'),
-        empleadoId: formNumber(data, 'empleadoId'),
-        servicioIds: data.getAll('servicioIds').map(Number),
+        servicioIds: selectedServiceIds,
         descuento: formNumber(data, 'descuento'),
         metodoPago: formText(data, 'metodoPago') as 'EFECTIVO' | 'QR' | 'TRANSFERENCIA'
       }
@@ -190,25 +183,32 @@ export function OrdenesPage(): React.JSX.Element {
         </button>
         {!prerequisitesReady && (
           <span className="form-help">
-            Para crear una orden necesitas al menos un vehículo, empleado y servicio.
+            Para crear una orden necesitas al menos un vehículo y un servicio.
           </span>
         )}
       </div>
 
-      <div className="filter-bar">
-        <div className="field">
-          <label htmlFor="orden-fecha-filtro">Filtrar por día</label>
-          <input
-            id="orden-fecha-filtro"
-            type="date"
-            value={dateFilter}
-            onChange={(event) => setDateFilter(event.currentTarget.value)}
-          />
+      <div className="order-date-filter">
+        <div className="order-date-filter-heading">
+          <span className="order-date-filter-icon">
+            <AppIcon name="calendar" size={21} />
+          </span>
+          <span>
+            <strong>Filtrar órdenes por día</strong>
+            <small>Selecciona una fecha para consultar su actividad.</small>
+          </span>
         </div>
-        <button type="button" className="button-secondary" onClick={() => setDateFilter('')}>
-          Mostrar todos
-        </button>
-        <span className="form-help">{filteredOrders.length} orden(es)</span>
+        <div className="order-date-filter-controls">
+          <DatePicker
+            value={dateFilter}
+            onChange={setDateFilter}
+            label="Fecha seleccionada"
+          />
+          <span className="order-date-result">
+            <strong>{filteredOrders.length}</strong>
+            <span>orden(es)</span>
+          </span>
+        </div>
       </div>
 
       <Modal
@@ -226,7 +226,7 @@ export function OrdenesPage(): React.JSX.Element {
               required
             >
               <option value="">Seleccionar vehículo</option>
-              {vehiculos.map((item) => (
+              {vehiculos.filter((item) => item.estado === 'ACTIVO').map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.placa} — {item.marca} {item.modelo}
                 </option>
@@ -246,44 +246,56 @@ export function OrdenesPage(): React.JSX.Element {
               <option value="TRANSFERENCIA">Transferencia</option>
             </select>
           </div>
-          <div className="field">
-            <label htmlFor="orden-empleado">Empleado responsable *</label>
-            <select
-              id="orden-empleado"
-              name="empleadoId"
-              defaultValue={editingOrder?.empleadoId ?? ''}
-              required
-            >
-              <option value="">Seleccionar empleado</option>
-              {empleados.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nombres} {item.apellidos}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="orden-servicios">Servicios * (puedes seleccionar varios)</label>
-            <select
-              id="orden-servicios"
-              name="servicioIds"
-              multiple
-              required
-              value={selectedServiceIds.map(String)}
-              onChange={(event) =>
-                setSelectedServiceIds(
-                  Array.from(event.currentTarget.selectedOptions, (option) => Number(option.value))
+          <fieldset className="order-services-fieldset">
+            <legend>
+              <span className="order-services-heading">
+                <span className="order-services-heading-icon">
+                  <AppIcon name="services" size={20} />
+                </span>
+                <span>
+                  <strong>Servicios</strong>
+                  <small>Puedes seleccionar uno o varios.</small>
+                </span>
+              </span>
+              <span className="order-services-count">
+                {selectedServiceIds.length} seleccionado(s)
+              </span>
+            </legend>
+            <div className="order-services-grid">
+              {servicios.map((item) => {
+                const selected = selectedServiceIds.includes(item.id)
+
+                return (
+                  <button
+                    className={`order-service-card ${selected ? 'selected' : ''}`}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={selected}
+                    key={item.id}
+                    onClick={() =>
+                      setSelectedServiceIds((current) =>
+                        current.includes(item.id)
+                          ? current.filter((serviceId) => serviceId !== item.id)
+                          : [...current, item.id]
+                      )
+                    }
+                  >
+                    <span className="order-service-icon">
+                      <AppIcon name="services" size={19} />
+                    </span>
+                    <span className="order-service-copy">
+                      <strong>{item.nombre}</strong>
+                      <small>{item.categoria}</small>
+                    </span>
+                    <span className="order-service-price">{money.format(item.precio)}</span>
+                    <span className="order-service-check" aria-hidden="true">
+                      {selected ? '✓' : ''}
+                    </span>
+                  </button>
                 )
-              }
-            >
-              {servicios.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nombre} — {money.format(item.precio)}
-                </option>
-              ))}
-            </select>
-            <small>Usa Ctrl + clic para elegir más de un servicio.</small>
-          </div>
+              })}
+            </div>
+          </fieldset>
           {selectedServiceIds.length > 0 && (
             <div className="order-supplies">
               <strong>Insumos requeridos</strong>
@@ -351,7 +363,6 @@ export function OrdenesPage(): React.JSX.Element {
 
       <DataTable
         headers={[
-          '#',
           'Fecha',
           'Cliente',
           'Placa',
@@ -363,7 +374,6 @@ export function OrdenesPage(): React.JSX.Element {
       >
         {filteredOrders.map((item) => (
           <tr key={item.id}>
-            <td>{item.id}</td>
             <td>{parseDatabaseDate(item.fechaIngreso).toLocaleString()}</td>
             <td>{item.cliente}</td>
             <td>{item.placa}</td>

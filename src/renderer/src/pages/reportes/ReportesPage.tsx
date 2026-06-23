@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import type { ReporteResumen } from '../../../../shared/types/domain'
+import { AppIcon } from '../../components/ui/AppIcon'
 import { DataTable } from '../../components/ui/DataTable'
+import { DatePicker } from '../../components/ui/DatePicker'
 import { useAppFeedback } from '../../hooks/useAppFeedback'
 import { reportesRepository } from '../../repositories/reportes.repository'
+import { dateFromKey } from '../../utils/date'
 import { money } from '../../utils/format'
 
 function localDate(date = new Date()): string {
@@ -25,6 +28,13 @@ export function ReportesPage(): React.JSX.Element {
   const [report, setReport] = useState<ReporteResumen>()
   const [loading, setLoading] = useState(false)
   const { showMessage, clearMessage } = useAppFeedback()
+  const dateFormatter = new Intl.DateTimeFormat('es-BO', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
+  const rangeDays =
+    Math.round((dateFromKey(hasta).getTime() - dateFromKey(desde).getTime()) / 86_400_000) + 1
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -93,30 +103,56 @@ export function ReportesPage(): React.JSX.Element {
           </div>
         </div>
         <form className="report-filter" onSubmit={submit}>
-          <div className="field">
-            <label htmlFor="reporte-desde">Fecha inicial</label>
-            <input
-              id="reporte-desde"
-              type="date"
-              value={desde}
-              max={hasta}
-              onChange={(event) => setDesde(event.currentTarget.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="reporte-hasta">Fecha final</label>
-            <input
-              id="reporte-hasta"
-              type="date"
-              value={hasta}
-              min={desde}
-              onChange={(event) => setHasta(event.currentTarget.value)}
-              required
-            />
-          </div>
+          <DatePicker
+            value={desde}
+            onChange={setDesde}
+            label="Fecha inicial"
+            allowEmpty={false}
+            max={hasta}
+            showShortcuts={false}
+          />
+          <DatePicker
+            value={hasta}
+            onChange={setHasta}
+            label="Fecha final"
+            allowEmpty={false}
+            min={desde}
+            showShortcuts={false}
+          />
           <button disabled={loading}>{loading ? 'Consultando...' : 'Actualizar resultados'}</button>
         </form>
+      </div>
+
+      <div className="report-period-card" aria-label="Periodo seleccionado">
+        <div className="report-period-intro">
+          <span className="report-period-icon">
+            <AppIcon name="calendar" size={23} />
+          </span>
+          <span>
+            <small>Periodo seleccionado</small>
+            <strong>
+              {dateFormatter.format(dateFromKey(desde))} —{' '}
+              {dateFormatter.format(dateFromKey(hasta))}
+            </strong>
+          </span>
+        </div>
+        <div className="report-period-dates">
+          <div>
+            <small>Desde</small>
+            <strong>{dateFormatter.format(dateFromKey(desde))}</strong>
+          </div>
+          <span className="report-period-line" aria-hidden="true">
+            <i />
+          </span>
+          <div>
+            <small>Hasta</small>
+            <strong>{dateFormatter.format(dateFromKey(hasta))}</strong>
+          </div>
+        </div>
+        <span className="report-period-duration">
+          <strong>{rangeDays}</strong>
+          <span>{rangeDays === 1 ? 'día incluido' : 'días incluidos'}</span>
+        </span>
       </div>
 
       {report && (

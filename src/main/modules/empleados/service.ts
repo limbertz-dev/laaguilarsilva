@@ -13,8 +13,11 @@ export function listarEmpleados(): Empleado[] {
   const rows = getDatabase()
     .prepare(
       `SELECT id, nombres, apellidos, telefono, cargo,
-              salario_centavos AS salarioCentavos, estado
-       FROM empleados WHERE estado = 'ACTIVO' ORDER BY apellidos, nombres`
+              salario_centavos AS salarioCentavos, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM empleados
+       WHERE eliminacion_programada_en IS NULL OR datetime(eliminacion_programada_en) > datetime('now')
+       ORDER BY apellidos, nombres`
     )
     .all() as unknown as EmpleadoRow[]
   return rows.map(mapEmpleado)
@@ -31,23 +34,39 @@ export function crearEmpleado(input: EmpleadoInput): Empleado {
   const row = getDatabase()
     .prepare(
       `SELECT id, nombres, apellidos, telefono, cargo,
-              salario_centavos AS salarioCentavos, estado
-       FROM empleados WHERE id = ? AND estado = 'ACTIVO'`
+              salario_centavos AS salarioCentavos, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM empleados WHERE id = ?`
     )
     .get(toId(result.lastInsertRowid)) as unknown as EmpleadoRow
   return mapEmpleado(row)
 }
 
 export function eliminarEmpleado(empleadoId: number): void {
-  const pendiente = getDatabase()
-    .prepare("SELECT 1 FROM ordenes WHERE empleado_id = ? AND estado = 'PENDIENTE' LIMIT 1")
-    .get(empleadoId)
-  if (pendiente) throw new Error('No se puede eliminar: el empleado tiene una orden pendiente')
-
   const result = getDatabase()
-    .prepare("UPDATE empleados SET estado = 'INACTIVO' WHERE id = ? AND estado = 'ACTIVO'")
+    .prepare(
+      `UPDATE empleados
+       SET estado = 'INACTIVO',
+           eliminacion_programada_en = datetime('now', '+24 hours')
+       WHERE id = ?`
+    )
     .run(empleadoId)
-  if (result.changes === 0) throw new Error('Empleado activo no encontrado')
+  if (result.changes === 0) throw new Error('Empleado no encontrado')
+}
+
+export function cambiarEstadoEmpleado(
+  empleadoId: number,
+  estado: 'ACTIVO' | 'INACTIVO'
+): void {
+  const result = getDatabase()
+    .prepare(
+      `UPDATE empleados
+       SET estado = ?,
+           eliminacion_programada_en = CASE WHEN ? = 'ACTIVO' THEN NULL ELSE eliminacion_programada_en END
+       WHERE id = ?`
+    )
+    .run(estado, estado, empleadoId)
+  if (result.changes === 0) throw new Error('Empleado no encontrado')
 }
 
 export function actualizarEmpleado(empleadoId: number, input: EmpleadoInput): Empleado {
@@ -56,7 +75,7 @@ export function actualizarEmpleado(empleadoId: number, input: EmpleadoInput): Em
     .prepare(
       `UPDATE empleados
        SET nombres = ?, apellidos = ?, telefono = ?, cargo = ?, salario_centavos = ?
-       WHERE id = ? AND estado = 'ACTIVO'`
+       WHERE id = ?`
     )
     .run(
       data.nombres,
@@ -71,13 +90,13 @@ export function actualizarEmpleado(empleadoId: number, input: EmpleadoInput): Em
   const row = getDatabase()
     .prepare(
       `SELECT id, nombres, apellidos, telefono, cargo,
-              salario_centavos AS salarioCentavos, estado
-       FROM empleados WHERE id = ? AND estado = 'ACTIVO'`
+              salario_centavos AS salarioCentavos, estado,
+              eliminacion_programada_en AS eliminacionProgramadaEn
+       FROM empleados WHERE id = ?`
     )
     .get(empleadoId) as unknown as EmpleadoRow
   return mapEmpleado(row)
 }
-
 
 export function pagarSalario(empleadoId: number): void {
   transaction(() => {

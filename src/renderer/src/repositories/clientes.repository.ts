@@ -8,5 +8,6 @@ export const clientesRepository = {
   update: (clientId: number, input: ClienteInput) =>
     window.api.clientes.actualizar(clientId, input),
   delete: (clientId: number) => window.api.clientes.eliminar(clientId),
+  cancelarEliminacion: (clientId: number) => window.api.clientes.cancelarEliminacion(clientId),
   history: (clientId: number) => window.api.clientes.historial(clientId)
 }

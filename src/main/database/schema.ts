@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS clientes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre TEXT NOT NULL,
   telefono TEXT NOT NULL,
-  creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
+  eliminacion_programada_en TEXT
 );
 
 CREATE TABLE IF NOT EXISTS vehiculos (
@@ -17,7 +19,9 @@ CREATE TABLE IF NOT EXISTS vehiculos (
   modelo TEXT NOT NULL,
   color TEXT NOT NULL DEFAULT '',
   tipo TEXT NOT NULL DEFAULT '',
-  observaciones TEXT NOT NULL DEFAULT ''
+  observaciones TEXT NOT NULL DEFAULT '',
+  estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
+  eliminacion_programada_en TEXT
 );
 
 CREATE TABLE IF NOT EXISTS servicios (
@@ -26,7 +30,8 @@ CREATE TABLE IF NOT EXISTS servicios (
   descripcion TEXT NOT NULL DEFAULT '',
   categoria TEXT NOT NULL DEFAULT 'General',
   precio_centavos INTEGER NOT NULL CHECK (precio_centavos >= 0),
-  estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO'))
+  estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
+  eliminacion_programada_en TEXT
 );
 
 CREATE TABLE IF NOT EXISTS empleados (
@@ -36,7 +41,8 @@ CREATE TABLE IF NOT EXISTS empleados (
   telefono TEXT NOT NULL,
   cargo TEXT NOT NULL,
   salario_centavos INTEGER NOT NULL CHECK (salario_centavos >= 0),
-  estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO'))
+  estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
+  eliminacion_programada_en TEXT
 );
 
 CREATE TABLE IF NOT EXISTS insumos (
@@ -45,13 +51,14 @@ CREATE TABLE IF NOT EXISTS insumos (
   unidad TEXT NOT NULL,
   stock_actual REAL NOT NULL DEFAULT 0 CHECK (stock_actual >= 0),
   stock_minimo REAL NOT NULL DEFAULT 0 CHECK (stock_minimo >= 0),
-  estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO'))
+  estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
+  eliminacion_programada_en TEXT
 );
 
 CREATE TABLE IF NOT EXISTS ordenes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   vehiculo_id INTEGER NOT NULL REFERENCES vehiculos(id) ON DELETE RESTRICT,
-  empleado_id INTEGER NOT NULL REFERENCES empleados(id) ON DELETE RESTRICT,
+  empleado_id INTEGER REFERENCES empleados(id) ON DELETE SET NULL,
   subtotal_centavos INTEGER NOT NULL CHECK (subtotal_centavos >= 0),
   descuento_centavos INTEGER NOT NULL DEFAULT 0 CHECK (descuento_centavos >= 0),
   total_centavos INTEGER NOT NULL CHECK (total_centavos >= 0),

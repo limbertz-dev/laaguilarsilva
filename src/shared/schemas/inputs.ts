@@ -196,7 +196,6 @@ export const compraInsumoInput = z.object({
 
 export const ordenInput = z.object({
   vehiculoId: z.number().int().positive(),
-  empleadoId: z.number().int().positive(),
   servicioIds: z.array(z.number().int().positive()).min(1),
   descuento: decimal('El descuento', 0, 5000).default(0),
   metodoPago: z.enum(['EFECTIVO', 'QR', 'TRANSFERENCIA'])
