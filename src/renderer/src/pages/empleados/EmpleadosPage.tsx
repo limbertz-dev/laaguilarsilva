@@ -8,12 +8,21 @@ import { money } from '../../utils/format'
 import { formNumber, formText } from '../../utils/form'
 import { cargosEmpleado } from '../../../../shared/schemas/inputs'
 
+type EmployeeFormInput = {
+  nombres: string
+  apellidos: string
+  telefono: string
+  cargo: (typeof cargosEmpleado)[number]
+  salario: number
+}
+
 export function EmpleadosPage(): React.JSX.Element {
   const [empleados, setEmpleados] = useState<Empleado[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<Empleado | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [employeeToDelete, setEmployeeToDelete] = useState<Empleado | null>(null)
+  const [duplicatePhoneInput, setDuplicatePhoneInput] = useState<EmployeeFormInput | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const { showMessage, clearMessage } = useAppFeedback()
 
@@ -26,6 +35,18 @@ export function EmpleadosPage(): React.JSX.Element {
     }, 0)
     return () => window.clearTimeout(timer)
   }, [clearMessage, load, showMessage])
+
+  const persistEmployee = async (input: EmployeeFormInput): Promise<void> => {
+    if (editingEmployee) {
+      await empleadosRepository.update(editingEmployee.id, input)
+    } else {
+      await empleadosRepository.create(input)
+    }
+    setModalOpen(false)
+    setEditingEmployee(null)
+    showMessage(editingEmployee ? 'Empleado actualizado' : 'Empleado registrado')
+    await load()
+  }
 
   const create = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
@@ -45,22 +66,26 @@ export function EmpleadosPage(): React.JSX.Element {
       const repeatedPhone = empleados.some(
         (employee) => employee.telefono === input.telefono && employee.id !== editingEmployee?.id
       )
-      if (
-        repeatedPhone &&
-        !window.confirm('Ya existe otro empleado con este teléfono. ¿Deseas continuar?')
-      ) {
+      if (repeatedPhone) {
+        setDuplicatePhoneInput(input)
         return
       }
-      if (editingEmployee) {
-        await empleadosRepository.update(editingEmployee.id, input)
-      } else {
-        await empleadosRepository.create(input)
-      }
+      await persistEmployee(input)
       form.reset()
-      setModalOpen(false)
-      setEditingEmployee(null)
-      showMessage(editingEmployee ? 'Empleado actualizado' : 'Empleado registrado')
-      await load()
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const confirmDuplicatePhone = async (): Promise<void> => {
+    if (!duplicatePhoneInput || isSaving) return
+    setIsSaving(true)
+    try {
+      clearMessage()
+      await persistEmployee(duplicatePhoneInput)
+      setDuplicatePhoneInput(null)
     } catch (error) {
       showMessage(error instanceof Error ? error.message : String(error))
     } finally {
@@ -237,6 +262,29 @@ export function EmpleadosPage(): React.JSX.Element {
           </tr>
         ))}
       </DataTable>
+
+      <Modal
+        open={duplicatePhoneInput !== null}
+        title="Teléfono duplicado"
+        onClose={() => {
+          if (!isSaving) setDuplicatePhoneInput(null)
+        }}
+      >
+        <p>Ya existe otro empleado con este teléfono. ¿Deseas continuar?</p>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={isSaving}
+            onClick={() => setDuplicatePhoneInput(null)}
+          >
+            Cancelar
+          </button>
+          <button type="button" disabled={isSaving} onClick={confirmDuplicatePhone}>
+            {isSaving ? 'Guardando...' : 'Continuar'}
+          </button>
+        </div>
+      </Modal>
 
       <Modal
         open={employeeToDelete !== null}

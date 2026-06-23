@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { Insumo } from '../../../../shared/types/domain'
 import { DataTable } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
@@ -18,6 +18,18 @@ export function InventarioPage(): React.JSX.Element {
   const { showMessage, clearMessage } = useAppFeedback()
 
   const load = useCallback(async () => setInsumos(await inventarioRepository.list()), [])
+
+  const visibleSupplies = useMemo(
+    () =>
+      [...insumos].sort((left, right) => {
+        const leftPending = left.eliminacionProgramadaEn !== null
+        const rightPending = right.eliminacionProgramadaEn !== null
+        if (leftPending !== rightPending) return leftPending ? 1 : -1
+        if (left.estado !== right.estado) return left.estado === 'ACTIVO' ? -1 : 1
+        return left.nombre.localeCompare(right.nombre, 'es')
+      }),
+    [insumos]
+  )
 
   useEffect(() => {
     clearMessage()
@@ -202,7 +214,7 @@ export function InventarioPage(): React.JSX.Element {
           <div className="field">
             <label htmlFor="compra-insumo">Insumo *</label>
             <select id="compra-insumo" name="insumoId" required>
-              {insumos
+              {visibleSupplies
                 .filter((item) => item.estado === 'ACTIVO' && !item.eliminacionProgramadaEn)
                 .map((item) => (
                   <option key={item.id} value={item.id}>
@@ -248,7 +260,7 @@ export function InventarioPage(): React.JSX.Element {
       </Modal>
 
       <DataTable headers={['Insumo', 'Stock', 'Mínimo', 'Estado', 'Acciones']}>
-        {insumos.map((item) => (
+        {visibleSupplies.map((item) => (
           <tr
             key={item.id}
             className={item.eliminacionProgramadaEn ? 'service-pending-delete' : undefined}

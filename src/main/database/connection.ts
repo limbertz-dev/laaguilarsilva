@@ -91,18 +91,17 @@ function migrateDatabase(db: DatabaseSync): void {
             CHECK (estado IN ('PENDIENTE', 'COMPLETADA', 'CANCELADA')),
           estado_operativo TEXT NOT NULL DEFAULT 'RECIBIDO',
           metodo_pago TEXT NOT NULL DEFAULT 'EFECTIVO',
-          observaciones TEXT NOT NULL DEFAULT '',
           fecha_ingreso TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           fecha_completada TEXT
         );
         INSERT INTO ordenes_migracion (
           id, vehiculo_id, empleado_id, subtotal_centavos, descuento_centavos,
-          total_centavos, estado, estado_operativo, metodo_pago, observaciones,
+          total_centavos, estado, estado_operativo, metodo_pago,
           fecha_ingreso, fecha_completada
         )
         SELECT
           id, vehiculo_id, empleado_id, subtotal_centavos, descuento_centavos,
-          total_centavos, estado, estado_operativo, metodo_pago, observaciones,
+          total_centavos, estado, estado_operativo, metodo_pago,
           fecha_ingreso, fecha_completada
         FROM ordenes;
         DROP TABLE ordenes;

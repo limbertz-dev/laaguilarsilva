@@ -17,7 +17,7 @@ export function listarEmpleados(): Empleado[] {
               eliminacion_programada_en AS eliminacionProgramadaEn
        FROM empleados
        WHERE eliminacion_programada_en IS NULL OR datetime(eliminacion_programada_en) > datetime('now')
-       ORDER BY apellidos, nombres`
+       ORDER BY estado, apellidos, nombres`
     )
     .all() as unknown as EmpleadoRow[]
   return rows.map(mapEmpleado)

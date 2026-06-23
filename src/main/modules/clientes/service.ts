@@ -16,7 +16,7 @@ export function listarClientes(): Cliente[] {
               eliminacion_programada_en AS eliminacionProgramadaEn
        FROM clientes
        WHERE eliminacion_programada_en IS NULL OR datetime(eliminacion_programada_en) > datetime('now')
-       ORDER BY nombre`
+       ORDER BY estado, nombre`
     )
     .all() as unknown as Cliente[]
 }

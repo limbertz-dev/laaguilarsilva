@@ -167,7 +167,7 @@ export function CajaPage(): React.JSX.Element {
 
           {filteredMovements.length > 0 ? (
             <DataTable
-              headers={['Fecha', 'Tipo', 'Método', 'Categoría', 'Concepto', 'Monto', 'Saldo']}
+              headers={['Fecha', 'Tipo', 'Categoría', 'Concepto', 'Monto', 'Saldo']}
             >
               {filteredMovements.map((item) => (
                 <tr key={item.id}>
@@ -177,7 +177,6 @@ export function CajaPage(): React.JSX.Element {
                       {item.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
                     </span>
                   </td>
-                  <td>{item.metodoPago ?? '—'}</td>
                   <td>{item.categoria}</td>
                   <td>{item.concepto}</td>
                   <td className={`money-cell ${item.tipo.toLowerCase()}`}>

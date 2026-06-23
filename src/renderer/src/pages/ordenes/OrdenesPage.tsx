@@ -38,6 +38,8 @@ export function OrdenesPage(): React.JSX.Element {
   const [discount, setDiscount] = useState(0)
   const [dateFilter, setDateFilter] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [orderToDelete, setOrderToDelete] = useState<OrdenResumen | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { showMessage, clearMessage } = useAppFeedback()
 
   const load = useCallback(async () => {
@@ -163,15 +165,19 @@ export function OrdenesPage(): React.JSX.Element {
     }
   }
 
-  const deleteOrder = async (order: OrdenResumen): Promise<void> => {
-    if (!window.confirm(`¿Eliminar definitivamente la orden #${order.id}?`)) return
+  const deleteOrder = async (): Promise<void> => {
+    if (!orderToDelete || isDeleting) return
+    setIsDeleting(true)
     try {
       clearMessage()
-      await ordenesRepository.delete(order.id)
+      await ordenesRepository.delete(orderToDelete.id)
+      setOrderToDelete(null)
       await load()
       showMessage('Orden eliminada')
     } catch (error) {
       showMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -403,7 +409,7 @@ export function OrdenesPage(): React.JSX.Element {
                   >
                     Cancelar
                   </button>
-                  <button className="danger" onClick={() => deleteOrder(item)}>
+                  <button className="danger" onClick={() => setOrderToDelete(item)}>
                     Eliminar
                   </button>
                 </div>
@@ -443,7 +449,7 @@ export function OrdenesPage(): React.JSX.Element {
                 </button>
               )}
               {item.estadoOperativo === 'CANCELADO' && (
-                <button className="danger" onClick={() => deleteOrder(item)}>
+                <button className="danger" onClick={() => setOrderToDelete(item)}>
                   Eliminar
                 </button>
               )}
@@ -451,6 +457,33 @@ export function OrdenesPage(): React.JSX.Element {
           </tr>
         ))}
       </DataTable>
+
+      <Modal
+        open={orderToDelete !== null}
+        title="Eliminar orden"
+        onClose={() => {
+          if (!isDeleting) setOrderToDelete(null)
+        }}
+      >
+        <p>
+          ¿Deseas eliminar definitivamente la orden
+          {orderToDelete ? ` #${orderToDelete.id}` : ''}?
+        </p>
+        <p className="form-help">Esta acción no se puede deshacer.</p>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={isDeleting}
+            onClick={() => setOrderToDelete(null)}
+          >
+            Cancelar
+          </button>
+          <button type="button" className="danger" disabled={isDeleting} onClick={deleteOrder}>
+            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </Modal>
     </section>
   )
 }

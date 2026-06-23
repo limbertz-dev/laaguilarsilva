@@ -12,12 +12,26 @@ export function Modal({ open, title, children, onClose }: ModalProps): React.JSX
   useEffect(() => {
     if (!open) return
 
+    const previousActiveElement = document.activeElement
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
     const closeOnEscape = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') onClose()
     }
 
     window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape)
+      document.body.style.overflow = originalOverflow
+      if (
+        previousActiveElement instanceof HTMLElement &&
+        document.contains(previousActiveElement)
+      ) {
+        previousActiveElement.focus()
+      }
+      window.focus()
+    }
   }, [onClose, open])
 
   if (!open) return null

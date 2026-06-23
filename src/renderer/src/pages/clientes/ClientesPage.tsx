@@ -58,26 +58,33 @@ export function ClientesPage(): React.JSX.Element {
     const clientQuery = clientFilter.trim().toLocaleLowerCase()
     const vehicleQuery = vehicleFilter.trim().toLocaleLowerCase()
 
-    return clientes.filter((client) => {
-      const clientVehicles = vehiculos.filter((vehicle) => vehicle.clienteId === client.id)
-      const matchesClient =
-        !clientQuery ||
-        client.nombre.toLocaleLowerCase().includes(clientQuery) ||
-        client.telefono.toLocaleLowerCase().includes(clientQuery)
-      const matchesVehicle =
-        !vehicleQuery ||
-        clientVehicles.some((vehicle) =>
-          [vehicle.placa, vehicle.marca, vehicle.modelo, vehicle.color, vehicle.tipo].some(
-            (value) => value.toLocaleLowerCase().includes(vehicleQuery)
+    return clientes
+      .filter((client) => {
+        const clientVehicles = vehiculos.filter((vehicle) => vehicle.clienteId === client.id)
+        const matchesClient =
+          !clientQuery ||
+          client.nombre.toLocaleLowerCase().includes(clientQuery) ||
+          client.telefono.toLocaleLowerCase().includes(clientQuery)
+        const matchesVehicle =
+          !vehicleQuery ||
+          clientVehicles.some((vehicle) =>
+            [vehicle.placa, vehicle.marca, vehicle.modelo, vehicle.color, vehicle.tipo].some(
+              (value) => value.toLocaleLowerCase().includes(vehicleQuery)
+            )
           )
-        )
-      const matchesPresence =
-        vehiclePresence === 'TODOS' ||
-        (vehiclePresence === 'CON_VEHICULOS' && clientVehicles.length > 0) ||
-        (vehiclePresence === 'SIN_VEHICULOS' && clientVehicles.length === 0)
+        const matchesPresence =
+          vehiclePresence === 'TODOS' ||
+          (vehiclePresence === 'CON_VEHICULOS' && clientVehicles.length > 0) ||
+          (vehiclePresence === 'SIN_VEHICULOS' && clientVehicles.length === 0)
 
-      return matchesClient && matchesVehicle && matchesPresence
-    })
+        return matchesClient && matchesVehicle && matchesPresence
+      })
+      .sort((left, right) => {
+        const leftPending = left.eliminacionProgramadaEn !== null
+        const rightPending = right.eliminacionProgramadaEn !== null
+        if (leftPending !== rightPending) return leftPending ? 1 : -1
+        return left.nombre.localeCompare(right.nombre, 'es')
+      })
   }, [clientFilter, clientes, vehicleFilter, vehiclePresence, vehiculos])
 
   const visibleVehicleCount = useMemo(

@@ -18,7 +18,6 @@ export function AppRoutes(): React.JSX.Element {
         <Route path="/servicios" element={<ServiciosPage />} />
         <Route path="/ordenes" element={<OrdenesPage />} />
         <Route path="/caja" element={<CajaPage />} />
-        <Route path="/reportes" element={<Navigate to="/caja" replace />} />
         <Route path="/inventario" element={<InventarioPage />} />
         <Route path="/empleados" element={<EmpleadosPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -20,7 +20,7 @@ export function listarInsumos(): Insumo[] {
               eliminacion_programada_en AS eliminacionProgramadaEn
        FROM insumos
        WHERE eliminacion_programada_en IS NULL OR datetime(eliminacion_programada_en) > datetime('now')
-       ORDER BY nombre`
+       ORDER BY (eliminacion_programada_en IS NOT NULL), estado, nombre`
     )
     .all() as unknown as Insumo[]
 }
