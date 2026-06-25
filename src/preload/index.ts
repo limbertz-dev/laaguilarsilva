@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { AppApi } from './api.types'
 
 const api: AppApi = {
-  dashboard: () => ipcRenderer.invoke('dashboard:obtener'),
+  dashboard: (filtro) => ipcRenderer.invoke('dashboard:obtener', filtro),
   clientes: {
     listar: () => ipcRenderer.invoke('clientes:listar'),
     crear: (input) => ipcRenderer.invoke('clientes:crear', input),
@@ -54,7 +54,8 @@ const api: AppApi = {
     iniciar: (ordenId) => ipcRenderer.invoke('ordenes:iniciar', ordenId),
     marcarLista: (ordenId) => ipcRenderer.invoke('ordenes:marcar-lista', ordenId),
     entregar: (ordenId) => ipcRenderer.invoke('ordenes:entregar', ordenId),
-    cancelar: (ordenId) => ipcRenderer.invoke('ordenes:cancelar', ordenId)
+    cancelar: (ordenId) => ipcRenderer.invoke('ordenes:cancelar', ordenId),
+    revertirInicio: (ordenId) => ipcRenderer.invoke('ordenes:revertir-inicio', ordenId)
   },
   caja: {
     resumen: () => ipcRenderer.invoke('caja:resumen'),

@@ -40,7 +40,7 @@ import {
 } from '../src/main/modules/inventario/service'
 import {
   actualizarOrden,
-  cancelarOrden,
+  buildCobroOrdenConcepto,
   crearOrden,
   entregarOrden,
   eliminarOrden,
@@ -234,13 +234,26 @@ try {
     apellidos: 'Prueba',
     telefono: '71111111',
     cargo: 'Lavador',
-    salario: 400
+    salario: 400,
+    tipoPago: 'Mes'
   })
-  const insumo = crearInsumo({ nombre: 'Shampoo funcional', unidad: 'Litro', stockMinimo: 1 })
+  const insumo = crearInsumo({
+    nombre: 'Shampoo funcional',
+    tipoPaquete: 'Botella',
+    contenido: '1 litro',
+    paquetes: 0,
+    paquetesMinimo: 1
+  })
   comprarInsumo({ insumoId: insumo.id, cantidad: 3, costoUnitario: 2 })
   let insumoDuplicadoBloqueado = false
   try {
-    crearInsumo({ nombre: ' shampoo   funcional ', unidad: 'Litro', stockMinimo: 1 })
+    crearInsumo({
+      nombre: ' shampoo   funcional ',
+      tipoPaquete: 'Botella',
+      contenido: '1 litro',
+      paquetes: 0,
+      paquetesMinimo: 1
+    })
   } catch {
     insumoDuplicadoBloqueado = true
   }
@@ -278,20 +291,22 @@ try {
     nombre: 'Lavado funcional editado',
     descripcion: 'Prueba editada',
     categoria: 'Exterior',
-    precio: 12,
-    insumos: [{ insumoId: insumo.id, cantidad: 0.25 }]
+    precio: 12
   })
   actualizarEmpleado(empleado.id, {
     nombres: 'Empleado',
     apellidos: 'Editado',
     telefono: '72222222',
     cargo: 'Supervisor',
-    salario: 450
+    salario: 450,
+    tipoPago: 'Mes'
   })
   actualizarInsumo(insumo.id, {
     nombre: 'Shampoo editado',
-    unidad: 'Litro',
-    stockMinimo: 2
+    tipoPaquete: 'Botella',
+    contenido: '1 litro',
+    paquetes: 3,
+    paquetesMinimo: 2
   })
   const ordenActualizada = actualizarOrden(orden.id, {
     vehiculoId: vehiculo.id,
@@ -317,40 +332,6 @@ try {
   iniciarOrden(orden.id)
   marcarOrdenLista(orden.id)
   entregarOrden(orden.id)
-
-  actualizarServicio(servicio.id, {
-    nombre: 'Lavado funcional editado',
-    descripcion: 'Prueba de stock',
-    categoria: 'Exterior',
-    precio: 12,
-    insumos: [{ insumoId: insumo.id, cantidad: 3 }]
-  })
-  const ordenSinStock = crearOrden({
-    vehiculoId: vehiculo.id,
-    servicioIds: [servicio.id],
-    descuento: 0,
-    metodoPago: 'EFECTIVO'
-  })
-  iniciarOrden(ordenSinStock.id)
-  let faltaStockControlada = false
-  try {
-    marcarOrdenLista(ordenSinStock.id)
-  } catch {
-    faltaStockControlada = true
-  }
-  const ordenTrasFallo = listarOrdenes().find((item) => item.id === ordenSinStock.id)
-  if (!faltaStockControlada || ordenTrasFallo?.estadoOperativo !== 'EN_PROCESO') {
-    throw new Error('La falta de stock no fue controlada correctamente')
-  }
-  cancelarOrden(ordenSinStock.id)
-  eliminarOrden(ordenSinStock.id)
-  actualizarServicio(servicio.id, {
-    nombre: 'Lavado funcional editado',
-    descripcion: 'Prueba editada',
-    categoria: 'Exterior',
-    precio: 12,
-    insumos: [{ insumoId: insumo.id, cantidad: 0.25 }]
-  })
 
   pagarSalario(empleado.id)
   registrarMovimiento({
@@ -395,7 +376,8 @@ try {
     throw new Error('El libro de caja debe contener exactamente cinco movimientos')
   }
   const cobroOrden = caja.movimientos.find(
-    (movimiento) => movimiento.concepto === `Cobro de orden #${orden.id}`
+    (movimiento) =>
+      movimiento.concepto === buildCobroOrdenConcepto(orden.fechaIngreso, orden.cliente)
   )
   if (cobroOrden?.metodoPago !== 'QR') {
     throw new Error(`Método de pago inesperado: ${JSON.stringify(cobroOrden)}`)
@@ -406,26 +388,22 @@ try {
     throw new Error(`Historial de cliente inesperado: ${JSON.stringify(historial)}`)
   }
 
-  const dashboard = obtenerDashboard()
+  const today = new Date()
+  const timezoneOffset = today.getTimezoneOffset()
+  const localToday = new Date(today.getTime() - timezoneOffset * 60_000).toISOString().slice(0, 10)
+  const dashboard = obtenerDashboard({ desde: localToday, hasta: localToday })
   if (
     dashboard.autosAtendidosHoy !== 1 ||
     dashboard.facturacionHoy !== 10 ||
     dashboard.servicioMasVendido?.nombre !== 'Lavado funcional editado' ||
-    dashboard.shampooConsumido?.cantidad !== 0.25
+    dashboard.insumoMasBajo?.nombre !== 'Shampoo editado' ||
+    dashboard.insumoMasBajo?.paquetes !== 3
   ) {
     throw new Error(`Indicadores diarios inesperados: ${JSON.stringify(dashboard)}`)
   }
 
-  const today = new Date()
-  const timezoneOffset = today.getTimezoneOffset()
-  const localToday = new Date(today.getTime() - timezoneOffset * 60_000).toISOString().slice(0, 10)
   const reporte = obtenerReporte({ desde: localToday, hasta: localToday })
-  if (
-    reporte.autosAtendidos !== 1 ||
-    reporte.facturacion !== 10 ||
-    reporte.consumos[0]?.cantidad !== 0.25 ||
-    reporte.ordenes.length !== 1
-  ) {
+  if (reporte.autosAtendidos !== 1 || reporte.facturacion !== 10 || reporte.ordenes.length !== 1) {
     throw new Error(`Reporte inesperado: ${JSON.stringify(reporte)}`)
   }
 

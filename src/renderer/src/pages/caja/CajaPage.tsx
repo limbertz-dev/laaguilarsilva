@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { ResumenCaja } from '../../../../shared/types/domain'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { DataTable } from '../../components/ui/DataTable'
 import { DatePicker } from '../../components/ui/DatePicker'
 import { Modal } from '../../components/ui/Modal'
@@ -243,18 +244,16 @@ export function CajaPage(): React.JSX.Element {
           </div>
           <div className="field">
             <label htmlFor="movimiento-categoria">Categoría *</label>
-            <select
+            <AppSelect
               id="movimiento-categoria"
               name="categoria"
               required
               defaultValue="Otro"
-            >
-              {categoriasCaja.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+              options={categoriasCaja.map((category) => ({
+                value: category,
+                label: category
+              }))}
+            />
           </div>
           <div className="field">
             <label htmlFor="movimiento-concepto">Concepto *</label>

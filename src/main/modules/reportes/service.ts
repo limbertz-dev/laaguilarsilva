@@ -4,12 +4,7 @@ import {
   reporteFiltroInput,
   type ReporteFiltroInput
 } from '../../../shared/schemas/inputs'
-import type {
-  ReporteConsumo,
-  ReporteOrden,
-  ReporteResumen,
-  ReporteServicio
-} from '../../../shared/types/domain'
+import type { ReporteOrden, ReporteResumen, ReporteServicio } from '../../../shared/types/domain'
 import { fromCents } from '../shared'
 
 export function obtenerReporte(input: ReporteFiltroInput): ReporteResumen {
@@ -53,16 +48,6 @@ export function obtenerReporte(input: ReporteFiltroInput): ReporteResumen {
     cantidad: number
     facturacionCentavos: number
   }[]
-  const consumos = db
-    .prepare(
-      `SELECT i.nombre AS insumo, i.unidad, SUM(ci.cantidad) AS cantidad
-       FROM consumos_insumo ci
-       JOIN insumos i ON i.id = ci.insumo_id
-       WHERE date(ci.fecha, 'localtime') BETWEEN date(?) AND date(?)
-       GROUP BY i.id, i.nombre, i.unidad
-       ORDER BY cantidad DESC, i.nombre`
-    )
-    .all(...rango) as unknown as ReporteConsumo[]
   const ordenesRows = db
     .prepare(
       `SELECT o.id, o.fecha_completada AS fecha, c.nombre AS cliente, v.placa,
@@ -101,7 +86,6 @@ export function obtenerReporte(input: ReporteFiltroInput): ReporteResumen {
     resultado: fromCents(caja.ingresos - caja.egresos),
     servicioMasVendido: servicios[0]?.nombre ?? null,
     servicios,
-    consumos,
     ordenes
   }
 }

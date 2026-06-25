@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS empleados (
   telefono TEXT NOT NULL,
   cargo TEXT NOT NULL,
   salario_centavos INTEGER NOT NULL CHECK (salario_centavos >= 0),
+  tipo_pago TEXT NOT NULL DEFAULT 'Mes',
   estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
   eliminacion_programada_en TEXT
 );
@@ -48,9 +49,10 @@ CREATE TABLE IF NOT EXISTS empleados (
 CREATE TABLE IF NOT EXISTS insumos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre TEXT NOT NULL UNIQUE,
-  unidad TEXT NOT NULL,
-  stock_actual REAL NOT NULL DEFAULT 0 CHECK (stock_actual >= 0),
-  stock_minimo REAL NOT NULL DEFAULT 0 CHECK (stock_minimo >= 0),
+  tipo_paquete TEXT NOT NULL,
+  contenido TEXT NOT NULL DEFAULT '',
+  paquetes INTEGER NOT NULL DEFAULT 0 CHECK (paquetes >= 0),
+  paquetes_minimo INTEGER NOT NULL DEFAULT 0 CHECK (paquetes_minimo >= 0),
   estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
   eliminacion_programada_en TEXT
 );
@@ -111,11 +113,11 @@ CREATE TABLE IF NOT EXISTS movimientos_caja (
   monto_centavos INTEGER NOT NULL CHECK (monto_centavos > 0),
   metodo_pago TEXT,
   origen TEXT NOT NULL,
-  origen_id INTEGER,
-  UNIQUE (origen, origen_id)
+  origen_id INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_ordenes_estado ON ordenes(estado);
 CREATE INDEX IF NOT EXISTS idx_movimientos_fecha ON movimientos_caja(fecha);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_movimientos_origen ON movimientos_caja(origen, origen_id) WHERE origen != 'PAGO_SALARIO';
 CREATE INDEX IF NOT EXISTS idx_consumos_fecha ON consumos_insumo(fecha);
 `

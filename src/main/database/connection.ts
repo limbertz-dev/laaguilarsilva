@@ -56,12 +56,40 @@ function migrateDatabase(db: DatabaseSync): void {
   if (!employeeColumns.some((column) => column.name === 'eliminacion_programada_en')) {
     db.exec('ALTER TABLE empleados ADD COLUMN eliminacion_programada_en TEXT')
   }
+  if (!employeeColumns.some((column) => column.name === 'tipo_pago')) {
+    db.exec("ALTER TABLE empleados ADD COLUMN tipo_pago TEXT NOT NULL DEFAULT 'Mes'")
+  }
 
   const supplyColumns = db.prepare('PRAGMA table_info(insumos)').all() as unknown as {
     name: string
   }[]
   if (!supplyColumns.some((column) => column.name === 'eliminacion_programada_en')) {
     db.exec('ALTER TABLE insumos ADD COLUMN eliminacion_programada_en TEXT')
+  }
+  if (!supplyColumns.some((column) => column.name === 'tipo_paquete')) {
+    db.exec(`
+      ALTER TABLE insumos ADD COLUMN tipo_paquete TEXT NOT NULL DEFAULT 'Paquete';
+      ALTER TABLE insumos ADD COLUMN contenido TEXT NOT NULL DEFAULT '';
+      ALTER TABLE insumos ADD COLUMN paquetes INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE insumos ADD COLUMN paquetes_minimo INTEGER NOT NULL DEFAULT 0;
+    `)
+    if (supplyColumns.some((column) => column.name === 'unidad')) {
+      db.exec(`
+        UPDATE insumos
+        SET tipo_paquete = CASE
+              WHEN unidad IN ('Paquete', 'Unidad') THEN 'Paquete'
+              WHEN unidad IN ('Litro', 'Mililitro') THEN 'Botella'
+              WHEN unidad IN ('Kilogramo', 'Gramo') THEN 'Bolsa'
+              ELSE 'Otro'
+            END,
+            contenido = CASE
+              WHEN trim(contenido) = '' THEN unidad
+              ELSE contenido
+            END,
+            paquetes = CAST(ROUND(COALESCE(stock_actual, 0)) AS INTEGER),
+            paquetes_minimo = CAST(ROUND(COALESCE(stock_minimo, 0)) AS INTEGER)
+      `)
+    }
   }
 
   const orderColumns = db.prepare('PRAGMA table_info(ordenes)').all() as unknown as {
@@ -126,6 +154,45 @@ function migrateDatabase(db: DatabaseSync): void {
   }[]
   if (!movementColumns.some((column) => column.name === 'metodo_pago')) {
     db.exec('ALTER TABLE movimientos_caja ADD COLUMN metodo_pago TEXT')
+  }
+
+  const movementIndex = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_movimientos_origen'"
+  ).get() as { name: string } | undefined
+  if (!movementIndex) {
+    db.exec('PRAGMA foreign_keys = OFF')
+    try {
+      db.exec(`
+        BEGIN IMMEDIATE;
+        CREATE TABLE movimientos_caja_migracion (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          fecha TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          tipo TEXT NOT NULL CHECK (tipo IN ('INGRESO', 'EGRESO')),
+          categoria TEXT NOT NULL,
+          concepto TEXT NOT NULL,
+          monto_centavos INTEGER NOT NULL CHECK (monto_centavos > 0),
+          metodo_pago TEXT,
+          origen TEXT NOT NULL,
+          origen_id INTEGER
+        );
+        INSERT INTO movimientos_caja_migracion (id, fecha, tipo, categoria, concepto, monto_centavos, metodo_pago, origen, origen_id)
+          SELECT id, fecha, tipo, categoria, concepto, monto_centavos, metodo_pago, origen, origen_id FROM movimientos_caja;
+        DROP TABLE movimientos_caja;
+        ALTER TABLE movimientos_caja_migracion RENAME TO movimientos_caja;
+        CREATE INDEX IF NOT EXISTS idx_movimientos_fecha ON movimientos_caja(fecha);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_movimientos_origen ON movimientos_caja(origen, origen_id) WHERE origen != 'PAGO_SALARIO';
+        COMMIT;
+      `)
+    } catch (error) {
+      try {
+        db.exec('ROLLBACK')
+      } catch {
+        // May have rolled back before reaching an active transaction
+      }
+      throw error
+    } finally {
+      db.exec('PRAGMA foreign_keys = ON')
+    }
   }
 
   db.exec(`

@@ -2,6 +2,7 @@ import type {
   Cliente,
   ClienteHistorial,
   Dashboard,
+
   Empleado,
   Insumo,
   OrdenResumen,
@@ -27,7 +28,7 @@ import type {
 } from '../schemas/inputs'
 
 export interface AppApi {
-  dashboard: () => Promise<Dashboard>
+  dashboard: (filtro: ReporteFiltroInput) => Promise<Dashboard>
   clientes: {
     listar: () => Promise<Cliente[]>
     crear: (input: ClienteInput) => Promise<Cliente>
@@ -76,6 +77,7 @@ export interface AppApi {
     marcarLista: (ordenId: number) => Promise<void>
     entregar: (ordenId: number) => Promise<void>
     cancelar: (ordenId: number) => Promise<void>
+    revertirInicio: (ordenId: number) => Promise<void>
   }
   caja: {
     resumen: () => Promise<ResumenCaja>

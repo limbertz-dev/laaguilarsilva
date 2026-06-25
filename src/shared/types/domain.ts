@@ -40,14 +40,6 @@ export interface Servicio {
   precio: number
   estado: EstadoRegistro
   eliminacionProgramadaEn: string | null
-  insumos: ServicioInsumo[]
-}
-
-export interface ServicioInsumo {
-  insumoId: number
-  nombre: string
-  unidad: string
-  cantidad: number
 }
 
 export interface Empleado {
@@ -57,6 +49,7 @@ export interface Empleado {
   telefono: string
   cargo: string
   salario: number
+  tipoPago: string
   estado: EstadoRegistro
   eliminacionProgramadaEn: string | null
 }
@@ -64,9 +57,10 @@ export interface Empleado {
 export interface Insumo {
   id: number
   nombre: string
-  unidad: string
-  stockActual: number
-  stockMinimo: number
+  tipoPaquete: string
+  contenido: string
+  paquetes: number
+  paquetesMinimo: number
   estado: EstadoRegistro
   eliminacionProgramadaEn: string | null
 }
@@ -105,6 +99,8 @@ export interface ResumenCaja {
 }
 
 export interface Dashboard {
+  desde: string
+  hasta: string
   clientes: number
   ordenesPendientes: number
   insumosCriticos: number
@@ -114,17 +110,24 @@ export interface Dashboard {
     nombre: string
     cantidad: number
   } | null
-  shampooConsumido: {
+  insumoMasBajo: {
     nombre: string
-    cantidad: number
-    unidad: string
+    paquetes: number
+    tipoPaquete: string
   } | null
   ingresosHoy: number
   egresosHoy: number
   resultadoHoy: number
   actividadSemanal: DashboardActividadDia[]
   serviciosVendidos: DashboardRanking[]
-  consumoInsumos: DashboardConsumo[]
+  inventarioActual: DashboardInventario[]
+}
+
+export interface DashboardInventario {
+  nombre: string
+  paquetes: number
+  tipoPaquete: string
+  contenido: string
 }
 
 export interface DashboardActividadDia {
@@ -141,22 +144,10 @@ export interface DashboardRanking {
   cantidad: number
 }
 
-export interface DashboardConsumo {
-  nombre: string
-  unidad: string
-  cantidad: number
-}
-
 export interface ReporteServicio {
   nombre: string
   cantidad: number
   facturacion: number
-}
-
-export interface ReporteConsumo {
-  insumo: string
-  unidad: string
-  cantidad: number
 }
 
 export interface ReporteOrden {
@@ -179,6 +170,5 @@ export interface ReporteResumen {
   resultado: number
   servicioMasVendido: string | null
   servicios: ReporteServicio[]
-  consumos: ReporteConsumo[]
   ordenes: ReporteOrden[]
 }

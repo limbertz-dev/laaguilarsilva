@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { Cliente, ClienteHistorial, Vehiculo } from '../../../../shared/types/domain'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { DataTable } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { useAppFeedback } from '../../hooks/useAppFeedback'
@@ -298,18 +299,6 @@ export function ClientesPage(): React.JSX.Element {
             onChange={(event) => setVehicleFilter(event.currentTarget.value)}
           />
         </div>
-        <div className="field">
-          <label htmlFor="vehiculo-presencia">Vehículos registrados</label>
-          <select
-            id="vehiculo-presencia"
-            value={vehiclePresence}
-            onChange={(event) => setVehiclePresence(event.currentTarget.value)}
-          >
-            <option value="TODOS">Todos los clientes</option>
-            <option value="CON_VEHICULOS">Con vehículos</option>
-            <option value="SIN_VEHICULOS">Sin vehículos</option>
-          </select>
-        </div>
         <button
           type="button"
           className="button-secondary"
@@ -321,11 +310,14 @@ export function ClientesPage(): React.JSX.Element {
         >
           Limpiar filtros
         </button>
-        <span className="form-help">
-          {filteredClients.length} cliente(s) · {visibleVehicleCount} vehículo(s)
+        <span className="order-date-result">
+          <strong>{filteredClients.length}</strong>
+          <span>cliente(s)</span>
+          <span aria-hidden="true">·</span>
+          <strong>{visibleVehicleCount}</strong>
+          <span>vehículo(s)</span>
         </span>
       </div>
-
       <Modal
         open={activeModal === 'cliente'}
         title={editingClient ? 'Editar cliente' : 'Registrar cliente'}
@@ -421,17 +413,12 @@ export function ClientesPage(): React.JSX.Element {
                     </div>
                     <div className="field">
                       <label htmlFor="cliente-vehiculo-tipo">Tipo</label>
-                      <select
+                      <AppSelect
                         id="cliente-vehiculo-tipo"
                         name="vehiculoTipo"
                         defaultValue="Automóvil"
-                      >
-                        {tiposVehiculo.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
+                        options={tiposVehiculo.map((type) => ({ value: type, label: type }))}
+                      />
                     </div>
                   </div>
                   <div className="field">
@@ -476,23 +463,11 @@ export function ClientesPage(): React.JSX.Element {
         onClose={closeVehicleModal}
       >
         <form onSubmit={saveVehicle}>
-          <div className="field">
-            <label htmlFor="vehiculo-cliente">Cliente propietario *</label>
-            <select
-              id="vehiculo-cliente"
-              name="clienteId"
-              value={vehicleOwnerId}
-              onChange={(event) => setVehicleOwnerId(event.currentTarget.value)}
-              required
-            >
-              <option value="">Seleccionar cliente</option>
-              {clientes.filter((item) => item.estado === 'ACTIVO').map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          <input
+            type="hidden"
+            name="clienteId"
+            value={editingVehicle?.clienteId ?? vehicleOwnerId}
+          />
           <div className="field">
             <label htmlFor="vehiculo-placa">Placa *</label>
             <input
@@ -544,17 +519,13 @@ export function ClientesPage(): React.JSX.Element {
           </div>
           <div className="field">
             <label htmlFor="vehiculo-tipo">Tipo</label>
-            <select
+            <AppSelect
               id="vehiculo-tipo"
               name="tipo"
+              key={editingVehicle?.id ?? 'nuevo-vehiculo'}
               defaultValue={editingVehicle?.tipo ?? 'Automóvil'}
-            >
-              {tiposVehiculo.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+              options={tiposVehiculo.map((type) => ({ value: type, label: type }))}
+            />
           </div>
           <div className="field">
             <label htmlFor="vehiculo-observaciones">Estado y observaciones del vehículo</label>

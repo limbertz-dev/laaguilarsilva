@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { Insumo } from '../../../../shared/types/domain'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { DataTable } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { useAppFeedback } from '../../hooks/useAppFeedback'
 import { inventarioRepository } from '../../repositories/inventario.repository'
 import { formNumber, formText } from '../../utils/form'
-import { unidadesMedida } from '../../../../shared/schemas/inputs'
+import { tiposPaquete } from '../../../../shared/schemas/inputs'
+
+function formatPaquetes(cantidad: number, tipo: string): string {
+  const label = cantidad === 1 ? tipo.toLowerCase() : `${tipo.toLowerCase()}s`
+  return `${cantidad} ${label}`
+}
 
 export function InventarioPage(): React.JSX.Element {
   const [insumos, setInsumos] = useState<Insumo[]>([])
@@ -30,6 +36,19 @@ export function InventarioPage(): React.JSX.Element {
       }),
     [insumos]
   )
+  const purchaseSupplies = useMemo(
+    () =>
+      visibleSupplies.filter((item) => item.estado === 'ACTIVO' && !item.eliminacionProgramadaEn),
+    [visibleSupplies]
+  )
+  const purchaseSupplyOptions = useMemo(
+    () =>
+      purchaseSupplies.map((item) => ({
+        value: String(item.id),
+        label: `${item.nombre} (${formatPaquetes(item.paquetes, item.tipoPaquete)})`
+      })),
+    [purchaseSupplies]
+  )
 
   useEffect(() => {
     clearMessage()
@@ -49,8 +68,10 @@ export function InventarioPage(): React.JSX.Element {
       clearMessage()
       const input = {
         nombre: formText(data, 'nombre'),
-        unidad: formText(data, 'unidad') as (typeof unidadesMedida)[number],
-        stockMinimo: formNumber(data, 'stockMinimo')
+        tipoPaquete: formText(data, 'tipoPaquete') as (typeof tiposPaquete)[number],
+        contenido: formText(data, 'contenido'),
+        paquetes: formNumber(data, 'paquetes'),
+        paquetesMinimo: formNumber(data, 'paquetesMinimo')
       }
       if (editingSupply) {
         await inventarioRepository.update(editingSupply.id, input)
@@ -95,20 +116,12 @@ export function InventarioPage(): React.JSX.Element {
     }
   }
 
-  const changeSupplyStatus = async (supply: Insumo): Promise<void> => {
-    const nextStatus = supply.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
-    const isCancellingDeletion = supply.eliminacionProgramadaEn !== null
+  const cancelDeletion = async (supply: Insumo): Promise<void> => {
     try {
       clearMessage()
-      await inventarioRepository.cambiarEstado(supply.id, nextStatus)
+      await inventarioRepository.cambiarEstado(supply.id, 'ACTIVO')
       await load()
-      showMessage(
-        isCancellingDeletion
-          ? 'Eliminación cancelada'
-          : nextStatus === 'ACTIVO'
-            ? 'Insumo activado'
-            : 'Insumo inactivado'
-      )
+      showMessage('Eliminación cancelada')
     } catch (error) {
       showMessage(error instanceof Error ? error.message : String(error))
     }
@@ -166,34 +179,61 @@ export function InventarioPage(): React.JSX.Element {
               id="insumo-nombre"
               name="nombre"
               defaultValue={editingSupply?.nombre}
-              placeholder="Ej. Detergente concentrado"
+              placeholder="Ej. Jabón en polvo"
               minLength={3}
               maxLength={60}
               required
             />
           </div>
           <div className="field">
-            <label htmlFor="insumo-unidad">Unidad de medida *</label>
-            <select id="insumo-unidad" name="unidad" defaultValue={editingSupply?.unidad}>
-              {unidadesMedida.map((unidad) => (
-                <option key={unidad} value={unidad}>
-                  {unidad}
-                </option>
-              ))}
-            </select>
+            <label htmlFor="insumo-paquete">Tipo de paquete *</label>
+            <AppSelect
+              id="insumo-paquete"
+              name="tipoPaquete"
+              key={editingSupply?.id ?? 'nuevo-insumo'}
+              defaultValue={editingSupply?.tipoPaquete ?? 'Bolsa'}
+              options={tiposPaquete.map((tipo) => ({ value: tipo, label: tipo }))}
+            />
           </div>
           <div className="field">
-            <label htmlFor="insumo-minimo">Stock mínimo *</label>
+            <label htmlFor="insumo-contenido">Contenido por paquete *</label>
             <input
-              id="insumo-minimo"
-              name="stockMinimo"
+              id="insumo-contenido"
+              name="contenido"
+              defaultValue={editingSupply?.contenido}
+              placeholder="Ej. 1 kg, 500 ml, 50 unidades"
+              maxLength={40}
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="insumo-paquetes">Paquetes disponibles *</label>
+            <input
+              id="insumo-paquetes"
+              name="paquetes"
               type="text"
-              inputMode="decimal"
-              defaultValue={editingSupply?.stockMinimo}
+              inputMode="numeric"
+              defaultValue={editingSupply?.paquetes ?? 0}
               placeholder="0"
               required
             />
           </div>
+          <div className="field">
+            <label htmlFor="insumo-minimo">Mínimo de paquetes *</label>
+            <input
+              id="insumo-minimo"
+              name="paquetesMinimo"
+              type="text"
+              inputMode="numeric"
+              defaultValue={editingSupply?.paquetesMinimo ?? 0}
+              placeholder="0"
+              required
+            />
+          </div>
+          <p className="form-help">
+            Registre cuántos paquetes quedan disponibles. Actualícelos manualmente cuando se
+            consuman.
+          </p>
           <div className="modal-actions">
             <button type="button" className="button-secondary" onClick={closeSupplyModal}>
               Cancelar
@@ -213,29 +253,28 @@ export function InventarioPage(): React.JSX.Element {
         <form onSubmit={purchase}>
           <div className="field">
             <label htmlFor="compra-insumo">Insumo *</label>
-            <select id="compra-insumo" name="insumoId" required>
-              {visibleSupplies
-                .filter((item) => item.estado === 'ACTIVO' && !item.eliminacionProgramadaEn)
-                .map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.nombre} ({item.unidad})
-                  </option>
-                ))}
-            </select>
+            <AppSelect
+              id="compra-insumo"
+              name="insumoId"
+              key={purchaseSupplyOptions.map((item) => item.value).join('-')}
+              defaultValue={purchaseSupplyOptions[0]?.value ?? ''}
+              required
+              options={purchaseSupplyOptions}
+            />
           </div>
           <div className="field">
-            <label htmlFor="compra-cantidad">Cantidad *</label>
+            <label htmlFor="compra-cantidad">Paquetes comprados *</label>
             <input
               id="compra-cantidad"
               name="cantidad"
               type="text"
-              inputMode="decimal"
+              inputMode="numeric"
               defaultValue="1"
               required
             />
           </div>
           <div className="field">
-            <label htmlFor="compra-costo">Costo unitario *</label>
+            <label htmlFor="compra-costo">Costo por paquete *</label>
             <input
               id="compra-costo"
               name="costoUnitario"
@@ -246,7 +285,7 @@ export function InventarioPage(): React.JSX.Element {
             />
           </div>
           <p className="form-help">
-            La compra aumenta el stock y registra automáticamente un egreso en caja.
+            La compra suma paquetes al inventario y registra automáticamente un egreso en caja.
           </p>
           <div className="modal-actions">
             <button type="button" className="button-secondary" onClick={() => setActiveModal(null)}>
@@ -259,37 +298,32 @@ export function InventarioPage(): React.JSX.Element {
         </form>
       </Modal>
 
-      <DataTable headers={['Insumo', 'Stock', 'Mínimo', 'Estado', 'Acciones']}>
+      <DataTable headers={['Insumo', 'Paquetes', 'Contenido', 'Mínimo', 'Estado', 'Acciones']}>
         {visibleSupplies.map((item) => (
           <tr
             key={item.id}
             className={item.eliminacionProgramadaEn ? 'service-pending-delete' : undefined}
           >
             <td>{item.nombre}</td>
+            <td>{formatPaquetes(item.paquetes, item.tipoPaquete)}</td>
+            <td>{item.contenido}</td>
+            <td>{item.paquetesMinimo}</td>
             <td>
-              {item.stockActual} {item.unidad}
-            </td>
-            <td>{item.stockMinimo}</td>
-            <td>
-              {item.eliminacionProgramadaEn
-                ? 'ELIMINANDO'
-                : item.stockActual <= item.stockMinimo
-                  ? 'CRÍTICO'
-                  : 'OK'}
+              {item.eliminacionProgramadaEn ? (
+                <span className="record-status inactivo">Eliminando</span>
+              ) : item.paquetes <= item.paquetesMinimo ? (
+                <span className="record-status stock-critico">Crítico</span>
+              ) : (
+                <span className="record-status stock-ok">Ok</span>
+              )}
             </td>
             <td>
               <div className="actions">
                 {item.eliminacionProgramadaEn ? (
-                  <button onClick={() => changeSupplyStatus(item)}>Cancelar eliminación</button>
+                  <button onClick={() => cancelDeletion(item)}>Cancelar eliminación</button>
                 ) : (
                   <>
                     <button onClick={() => editSupply(item)}>Editar</button>
-                    <button
-                      className={item.estado === 'ACTIVO' ? 'button-secondary' : ''}
-                      onClick={() => changeSupplyStatus(item)}
-                    >
-                      {item.estado === 'ACTIVO' ? 'Inactivar' : 'Activar'}
-                    </button>
                     <button className="danger" onClick={() => setSupplyToDelete(item)}>
                       Eliminar
                     </button>

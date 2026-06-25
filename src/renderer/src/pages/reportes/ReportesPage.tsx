@@ -85,19 +85,43 @@ export function ReportesPage(): React.JSX.Element {
     }
   }
 
+  const activePeriod = (() => {
+    const now = new Date()
+    const today = localDate(now)
+    if (desde === today && hasta === today) return 'hoy'
+    const weekStart = new Date(now)
+    weekStart.setDate(weekStart.getDate() - 6)
+    if (desde === localDate(weekStart) && hasta === today) return 'semana'
+    const monthStart = localDate(new Date(now.getFullYear(), now.getMonth(), 1))
+    if (desde === monthStart && hasta === today) return 'mes'
+    return null
+  })()
+
   return (
     <div>
       <div className="report-controls">
         <div className="period-shortcuts">
           <span>Periodo rápido</span>
           <div>
-            <button type="button" onClick={() => selectPeriod('hoy')}>
+            <button
+              type="button"
+              className={activePeriod === 'hoy' ? 'active' : undefined}
+              onClick={() => selectPeriod('hoy')}
+            >
               Hoy
             </button>
-            <button type="button" onClick={() => selectPeriod('semana')}>
+            <button
+              type="button"
+              className={activePeriod === 'semana' ? 'active' : undefined}
+              onClick={() => selectPeriod('semana')}
+            >
               Últimos 7 días
             </button>
-            <button type="button" onClick={() => selectPeriod('mes')}>
+            <button
+              type="button"
+              className={activePeriod === 'mes' ? 'active' : undefined}
+              onClick={() => selectPeriod('mes')}
+            >
               Este mes
             </button>
           </div>
@@ -220,25 +244,6 @@ export function ReportesPage(): React.JSX.Element {
               ) : (
                 <tr>
                   <td colSpan={3}>Sin servicios vendidos en el periodo.</td>
-                </tr>
-              )}
-            </DataTable>
-          </div>
-
-          <div className="report-section">
-            <h2>Consumo de insumos</h2>
-            <DataTable headers={['Insumo', 'Cantidad', 'Unidad']}>
-              {report.consumos.length > 0 ? (
-                report.consumos.map((supply) => (
-                  <tr key={`${supply.insumo}-${supply.unidad}`}>
-                    <td>{supply.insumo}</td>
-                    <td>{supply.cantidad}</td>
-                    <td>{supply.unidad}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={3}>Sin consumos registrados en el periodo.</td>
                 </tr>
               )}
             </DataTable>

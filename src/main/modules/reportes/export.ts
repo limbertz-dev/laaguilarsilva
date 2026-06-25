@@ -23,13 +23,6 @@ function reportHtml(report: ReporteResumen): string {
       </tr>`
     )
     .join('')
-  const consumos = report.consumos
-    .map(
-      (item) =>
-        `<tr><td>${escapeHtml(item.insumo)}</td><td>${item.cantidad}</td><td>${escapeHtml(item.unidad)}</td></tr>`
-    )
-    .join('')
-
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     body{font-family:Arial,sans-serif;color:#172033;padding:24px;font-size:12px}
     h1{margin:0 0 4px;font-size:22px} h2{margin:24px 0 8px;font-size:16px}
@@ -51,9 +44,6 @@ function reportHtml(report: ReporteResumen): string {
     <h2>Órdenes completadas</h2>
     <table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Placa</th><th>Servicios</th><th>Pago</th><th>Total</th></tr></thead>
     <tbody>${rows || '<tr><td colspan="7">Sin órdenes en el periodo</td></tr>'}</tbody></table>
-    <h2>Consumo de insumos</h2>
-    <table><thead><tr><th>Insumo</th><th>Cantidad</th><th>Unidad</th></tr></thead>
-    <tbody>${consumos || '<tr><td colspan="3">Sin consumos registrados</td></tr>'}</tbody></table>
   </body></html>`
 }
 
@@ -92,18 +82,12 @@ function reportExcel(report: ReporteResumen): string {
       ])
     )
   ].join('')
-  const supplies = [
-    row(['Insumo', 'Cantidad', 'Unidad']),
-    ...report.consumos.map((item) => row([item.insumo, item.cantidad, item.unidad]))
-  ].join('')
-
   return `<?xml version="1.0" encoding="UTF-8"?>
   <?mso-application progid="Excel.Sheet"?>
   <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
     xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
     <Worksheet ss:Name="Resumen"><Table>${summary}</Table></Worksheet>
     <Worksheet ss:Name="Ordenes"><Table>${orders}</Table></Worksheet>
-    <Worksheet ss:Name="Consumos"><Table>${supplies}</Table></Worksheet>
   </Workbook>`
 }
 

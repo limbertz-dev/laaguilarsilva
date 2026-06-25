@@ -1,7 +1,9 @@
 import { getDatabase, transaction } from '../../database/connection'
 import { ordenInput, parseInput, type OrdenInput } from '../../../shared/schemas/inputs'
 import type { OrdenResumen } from '../../../shared/types/domain'
-import { fromCents, toCents, toId } from '../shared'
+import { buildCobroOrdenConcepto, fromCents, toCents, toId } from '../shared'
+
+export { buildCobroOrdenConcepto } from '../shared'
 
 type OrdenRow = Omit<OrdenResumen, 'total' | 'descuento' | 'servicioIds'> & {
   totalCentavos: number
@@ -158,90 +160,29 @@ export function iniciarOrden(ordenId: number): void {
 }
 
 export function marcarOrdenLista(ordenId: number): void {
-  transaction(() => {
-    const orden = getDatabase()
-      .prepare(
-        `SELECT id, total_centavos AS totalCentavos, estado, estado_operativo AS estadoOperativo
-         FROM ordenes WHERE id = ?`
-      )
-      .get(ordenId) as
-      | { id: number; totalCentavos: number; estado: string; estadoOperativo: string }
-      | undefined
-    if (!orden) throw new Error('Orden no encontrada')
-    if (orden.estado !== 'PENDIENTE' || orden.estadoOperativo !== 'EN_PROCESO') {
-      throw new Error('Solo se puede finalizar una orden que está en proceso')
-    }
-
-    const consumos = getDatabase()
-      .prepare(
-        `SELECT os.servicio_id AS servicioId, si.insumo_id AS insumoId,
-                si.cantidad, i.nombre, i.unidad, i.stock_actual AS stockActual
-         FROM orden_servicios os
-         JOIN servicio_insumos si ON si.servicio_id = os.servicio_id
-         JOIN insumos i ON i.id = si.insumo_id
-         WHERE os.orden_id = ?`
-      )
-      .all(ordenId) as unknown as {
-      servicioId: number
-      insumoId: number
-      cantidad: number
-      nombre: string
-      unidad: string
-      stockActual: number
-    }[]
-
-    const requeridos = new Map<
-      number,
-      { nombre: string; unidad: string; cantidad: number; stock: number }
-    >()
-    consumos.forEach((consumo) => {
-      const actual = requeridos.get(consumo.insumoId)
-      requeridos.set(consumo.insumoId, {
-        nombre: consumo.nombre,
-        unidad: consumo.unidad,
-        cantidad: (actual?.cantidad ?? 0) + consumo.cantidad,
-        stock: consumo.stockActual
-      })
-    })
-    requeridos.forEach((requerido) => {
-      if (requerido.stock < requerido.cantidad) {
-        throw new Error(
-          `Stock insuficiente de ${requerido.nombre}: se requieren ${requerido.cantidad} ${requerido.unidad}`
-        )
-      }
-    })
-
-    getDatabase()
-      .prepare(
-        `UPDATE ordenes
-         SET estado_operativo = 'LISTO'
-         WHERE id = ?`
-      )
-      .run(ordenId)
-
-    const descontar = getDatabase().prepare(
-      'UPDATE insumos SET stock_actual = stock_actual - ? WHERE id = ?'
+  const result = getDatabase()
+    .prepare(
+      `UPDATE ordenes
+       SET estado_operativo = 'LISTO'
+       WHERE id = ? AND estado = 'PENDIENTE' AND estado_operativo = 'EN_PROCESO'`
     )
-    requeridos.forEach((requerido, insumoId) => {
-      descontar.run(requerido.cantidad, insumoId)
-    })
-    const registrarConsumo = getDatabase().prepare(
-      `INSERT INTO consumos_insumo (orden_id, servicio_id, insumo_id, cantidad)
-       VALUES (?, ?, ?, ?)`
-    )
-    consumos.forEach((consumo) => {
-      registrarConsumo.run(ordenId, consumo.servicioId, consumo.insumoId, consumo.cantidad)
-    })
-  })
+    .run(ordenId)
+  if (result.changes === 0) {
+    throw new Error('Solo se puede finalizar una orden que está en proceso')
+  }
 }
 
 export function entregarOrden(ordenId: number): void {
   transaction(() => {
     const orden = getDatabase()
       .prepare(
-        `SELECT id, total_centavos AS totalCentavos, estado,
-                estado_operativo AS estadoOperativo, metodo_pago AS metodoPago
-         FROM ordenes WHERE id = ?`
+        `SELECT o.id, o.total_centavos AS totalCentavos, o.estado,
+                o.estado_operativo AS estadoOperativo, o.metodo_pago AS metodoPago,
+                o.fecha_ingreso AS fechaIngreso, c.nombre AS cliente
+         FROM ordenes o
+         JOIN vehiculos v ON v.id = o.vehiculo_id
+         JOIN clientes c ON c.id = v.cliente_id
+         WHERE o.id = ?`
       )
       .get(ordenId) as
       | {
@@ -250,6 +191,8 @@ export function entregarOrden(ordenId: number): void {
           estado: string
           estadoOperativo: string
           metodoPago: string
+          fechaIngreso: string
+          cliente: string
         }
       | undefined
     if (!orden) throw new Error('Orden no encontrada')
@@ -273,19 +216,29 @@ export function entregarOrden(ordenId: number): void {
          (tipo, categoria, concepto, monto_centavos, metodo_pago, origen, origen_id)
          VALUES ('INGRESO', 'LAVADO', ?, ?, ?, 'ORDEN', ?)`
       )
-      .run(`Cobro de orden #${ordenId}`, orden.totalCentavos, orden.metodoPago, ordenId)
+      .run(
+        buildCobroOrdenConcepto(orden.fechaIngreso, orden.cliente),
+        orden.totalCentavos,
+        orden.metodoPago,
+        ordenId
+      )
   })
 }
 
-export function cancelarOrden(ordenId: number): void {
+export function revertirInicioOrden(ordenId: number): void {
   const result = getDatabase()
     .prepare(
-      `UPDATE ordenes SET estado = 'CANCELADA', estado_operativo = 'CANCELADO'
-       WHERE id = ? AND estado = 'PENDIENTE'
-         AND estado_operativo IN ('RECIBIDO', 'EN_PROCESO')`
+      `UPDATE ordenes SET estado_operativo = 'RECIBIDO'
+       WHERE id = ? AND estado = 'PENDIENTE' AND estado_operativo = 'EN_PROCESO'`
     )
     .run(ordenId)
-  if (result.changes === 0) throw new Error('No se puede cancelar una orden lista o entregada')
+  if (result.changes === 0) {
+    throw new Error('Solo se puede cancelar el inicio de una orden en proceso')
+  }
+}
+
+export function cancelarOrden(ordenId: number): void {
+  revertirInicioOrden(ordenId)
 }
 
 export function eliminarOrden(ordenId: number): void {

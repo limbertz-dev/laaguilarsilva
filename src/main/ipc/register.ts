@@ -47,7 +47,8 @@ import {
   eliminarOrden,
   iniciarOrden,
   marcarOrdenLista,
-  listarOrdenes
+  listarOrdenes,
+  revertirInicioOrden
 } from '../modules/ordenes/service'
 import {
   obtenerResumenCaja,
@@ -58,7 +59,7 @@ import { exportarReporteExcel, exportarReportePdf } from '../modules/reportes/ex
 import { obtenerReporte } from '../modules/reportes/service'
 
 export function registerIpcHandlers(): void {
-  ipcMain.handle('dashboard:obtener', () => obtenerDashboard())
+  ipcMain.handle('dashboard:obtener', (_, filtro) => obtenerDashboard(filtro))
   ipcMain.handle('clientes:listar', () => listarClientes())
   ipcMain.handle('clientes:crear', (_, input) => crearCliente(input))
   ipcMain.handle('clientes:crear-con-vehiculo', (_, input) => crearClienteConVehiculo(input))
@@ -98,6 +99,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('ordenes:marcar-lista', (_, id) => marcarOrdenLista(id))
   ipcMain.handle('ordenes:entregar', (_, id) => entregarOrden(id))
   ipcMain.handle('ordenes:cancelar', (_, id) => cancelarOrden(id))
+  ipcMain.handle('ordenes:revertir-inicio', (_, id) => revertirInicioOrden(id))
   ipcMain.handle('caja:resumen', () => obtenerResumenCaja())
   ipcMain.handle('caja:registrar-egreso', (_, input) => registrarEgreso(input))
   ipcMain.handle('caja:registrar-movimiento', (_, input) => registrarMovimiento(input))

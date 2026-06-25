@@ -1,35 +1,24 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import type { Servicio } from '../../../../shared/types/domain'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { DataTable } from '../../components/ui/DataTable'
-import { AppIcon } from '../../components/ui/AppIcon'
 import { Modal } from '../../components/ui/Modal'
 import { useAppFeedback } from '../../hooks/useAppFeedback'
 import { serviciosRepository } from '../../repositories/servicios.repository'
-import { inventarioRepository } from '../../repositories/inventario.repository'
-import type { Insumo } from '../../../../shared/types/domain'
 import { categoriasServicio } from '../../../../shared/schemas/inputs'
 import { money } from '../../utils/format'
-import { formNumber, formText, parseDecimal } from '../../utils/form'
+import { formNumber, formText } from '../../utils/form'
 
 export function ServiciosPage(): React.JSX.Element {
   const [servicios, setServicios] = useState<Servicio[]>([])
-  const [insumos, setInsumos] = useState<Insumo[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingService, setEditingService] = useState<Servicio | null>(null)
   const [serviceToDelete, setServiceToDelete] = useState<Servicio | null>(null)
-  const [recipe, setRecipe] = useState<Record<number, string>>({})
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const { showMessage, clearMessage } = useAppFeedback()
 
-  const load = useCallback(async () => {
-    const [services, supplies] = await Promise.all([
-      serviciosRepository.list(),
-      inventarioRepository.list()
-    ])
-    setServicios(services)
-    setInsumos(supplies)
-  }, [])
+  const load = useCallback(async () => setServicios(await serviciosRepository.list()), [])
 
   useEffect(() => {
     clearMessage()
@@ -47,24 +36,11 @@ export function ServiciosPage(): React.JSX.Element {
     setIsSaving(true)
     try {
       clearMessage()
-      const recipeEntries = Object.entries(recipe).filter(([, quantity]) => quantity.trim() !== '')
-      if (recipeEntries.some(([, quantity]) => !Number.isFinite(parseDecimal(quantity)))) {
-        throw new Error('El consumo de insumos debe ser un número válido')
-      }
-      if (recipeEntries.some(([, quantity]) => parseDecimal(quantity) < 0)) {
-        throw new Error('El consumo de insumos no puede ser negativo')
-      }
       const input = {
         nombre: formText(data, 'nombre'),
         descripcion: formText(data, 'descripcion'),
         categoria: formText(data, 'categoria') as (typeof categoriasServicio)[number],
-        precio: formNumber(data, 'precio'),
-        insumos: recipeEntries
-          .filter(([, quantity]) => parseDecimal(quantity) > 0)
-          .map(([insumoId, quantity]) => ({
-            insumoId: Number(insumoId),
-            cantidad: parseDecimal(quantity)
-          }))
+        precio: formNumber(data, 'precio')
       }
       if (editingService) {
         await serviciosRepository.update(editingService.id, input)
@@ -86,14 +62,10 @@ export function ServiciosPage(): React.JSX.Element {
   const closeModal = (): void => {
     setModalOpen(false)
     setEditingService(null)
-    setRecipe({})
   }
 
   const editService = (service: Servicio): void => {
     setEditingService(service)
-    setRecipe(
-      Object.fromEntries(service.insumos.map((item) => [item.insumoId, String(item.cantidad)]))
-    )
     setModalOpen(true)
   }
 
@@ -138,7 +110,6 @@ export function ServiciosPage(): React.JSX.Element {
         <button
           onClick={() => {
             setEditingService(null)
-            setRecipe({})
             setModalOpen(true)
           }}
         >
@@ -164,55 +135,6 @@ export function ServiciosPage(): React.JSX.Element {
               required
             />
           </div>
-          <fieldset className="recipe-fieldset">
-            <legend>
-              <span className="recipe-heading-icon">
-                <AppIcon name="inventory" size={20} />
-              </span>
-              <span>
-                <strong>Consumo de insumos</strong>
-                <small>Define cuánto se utiliza al completar una orden.</small>
-              </span>
-            </legend>
-            {insumos.length === 0 ? (
-              <span className="form-help">Primero registre insumos en Inventario.</span>
-            ) : (
-              <div className="recipe-grid">
-                {insumos.map((supply) => {
-                  const quantity = recipe[supply.id] ?? ''
-                  const isActive = parseDecimal(quantity) > 0
-
-                  return (
-                    <label className={`recipe-item ${isActive ? 'active' : ''}`} key={supply.id}>
-                      <span className="recipe-item-copy">
-                        <strong>{supply.nombre}</strong>
-                        <small>
-                          Disponible: {supply.stockActual} {supply.unidad}
-                        </small>
-                      </span>
-                      <span className="recipe-quantity">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={quantity}
-                          placeholder="0"
-                          aria-label={`Cantidad de ${supply.nombre} en ${supply.unidad}`}
-                          onChange={(event) => {
-                            const value = event.currentTarget.value
-                            setRecipe((current) => ({
-                              ...current,
-                              [supply.id]: value
-                            }))
-                          }}
-                        />
-                        <span>{supply.unidad}</span>
-                      </span>
-                    </label>
-                  )
-                })}
-              </div>
-            )}
-          </fieldset>
           <div className="field">
             <label htmlFor="servicio-descripcion">Descripción</label>
             <textarea
@@ -226,17 +148,16 @@ export function ServiciosPage(): React.JSX.Element {
           </div>
           <div className="field">
             <label htmlFor="servicio-categoria">Categoría</label>
-            <select
+            <AppSelect
               id="servicio-categoria"
               name="categoria"
+              key={editingService?.id ?? 'nuevo-servicio'}
               defaultValue={editingService?.categoria ?? 'General'}
-            >
-              {categoriasServicio.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+              options={categoriasServicio.map((category) => ({
+                value: category,
+                label: category
+              }))}
+            />
           </div>
           <div className="field">
             <label htmlFor="servicio-precio">Precio *</label>
@@ -261,7 +182,7 @@ export function ServiciosPage(): React.JSX.Element {
         </form>
       </Modal>
 
-      <DataTable headers={['Servicio', 'Categoría', 'Precio', 'Consumo', 'Estado', 'Acciones']}>
+      <DataTable headers={['Servicio', 'Categoría', 'Precio', 'Estado', 'Acciones']}>
         {servicios.map((item) => (
           <tr
             key={item.id}
@@ -270,13 +191,6 @@ export function ServiciosPage(): React.JSX.Element {
             <td>{item.nombre}</td>
             <td>{item.categoria}</td>
             <td>{money.format(item.precio)}</td>
-            <td>
-              {item.insumos.length > 0
-                ? item.insumos
-                    .map((supply) => `${supply.cantidad} ${supply.unidad} ${supply.nombre}`)
-                    .join(', ')
-                : 'Sin receta'}
-            </td>
             <td>
               <span className={`record-status ${item.estado.toLowerCase()}`}>
                 {item.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'}

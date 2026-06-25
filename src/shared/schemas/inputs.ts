@@ -14,15 +14,17 @@ const decimal = (label: string, min: number, max: number): z.ZodType<number, num
     .max(max, `${label} no puede superar ${max}`)
     .refine(dosDecimales, `${label} permite máximo 2 decimales`)
 
-export const unidadesMedida = [
-  'Litro',
-  'Mililitro',
-  'Unidad',
-  'Kilogramo',
-  'Gramo',
-  'Paquete'
+export const tiposPaquete = [
+  'Bolsa',
+  'Caja',
+  'Botella',
+  'Galón',
+  'Saco',
+  'Bidón',
+  'Paquete',
+  'Rollo',
+  'Otro'
 ] as const
-export const unidadesEnteras = new Set<string>(['Unidad', 'Paquete'])
 export const tiposVehiculo = [
   'Automóvil',
   'Camioneta',
@@ -62,6 +64,8 @@ export const cargosEmpleado = [
   'Supervisor',
   'Otro'
 ] as const
+
+export const tipoPagoEmpleado = ['Día', 'Semana', 'Quincena', 'Mes'] as const
 
 export const clienteInput = z.object({
   nombre: texto('El nombre')
@@ -123,15 +127,7 @@ export const servicioInput = z.object({
     .pipe(z.string().max(250, 'La descripción no puede superar 250 caracteres'))
     .default(''),
   categoria: z.enum(categoriasServicio, { error: 'Debe seleccionar una categoría' }),
-  precio: decimal('El precio', 1, 5000),
-  insumos: z
-    .array(
-      z.object({
-        insumoId: z.number().int().positive(),
-        cantidad: decimal('La cantidad de insumo', 0, 100000)
-      })
-    )
-    .default([])
+  precio: decimal('El precio', 1, 5000)
 })
 
 export const reporteFiltroInput = z.object({
@@ -160,38 +156,43 @@ export const empleadoInput = z.object({
     z.string().regex(/^\d{8}$/, 'El teléfono debe contener exactamente 8 dígitos')
   ),
   cargo: z.enum(cargosEmpleado, { error: 'Debe seleccionar un cargo' }),
-  salario: decimal('El salario', 0, 20000)
+  salario: decimal('El salario', 0, 20000),
+  tipoPago: z.enum(tipoPagoEmpleado, { error: 'Debe seleccionar un tipo de pago' })
 })
 
-export const insumoInput = z
-  .object({
-    nombre: texto('El nombre del insumo')
-      .pipe(
-        z
-          .string()
-          .min(3, 'El nombre debe tener al menos 3 caracteres')
-          .max(60, 'El nombre no puede superar 60 caracteres')
-      )
-      .refine((value) => !/^\d+$/.test(value), 'El nombre no puede contener solo números'),
-    unidad: z.enum(unidadesMedida, { error: 'Debe seleccionar una unidad de medida' }),
-    stockMinimo: decimal('El stock mínimo', 0, 100000)
-  })
-  .superRefine((data, context) => {
-    if (unidadesEnteras.has(data.unidad) && !Number.isInteger(data.stockMinimo)) {
-      context.addIssue({
-        code: 'custom',
-        path: ['stockMinimo'],
-        message: `El stock mínimo en ${data.unidad} debe ser entero`
-      })
-    }
-  })
+const entero = (label: string, min: number, max: number): z.ZodType<number, number> =>
+  z
+    .number({ error: `${label} debe ser un número válido` })
+    .int(`${label} debe ser un número entero`)
+    .min(min, `${label} debe ser mayor o igual a ${min}`)
+    .max(max, `${label} no puede superar ${max}`)
+
+export const insumoInput = z.object({
+  nombre: texto('El nombre del insumo')
+    .pipe(
+      z
+        .string()
+        .min(3, 'El nombre debe tener al menos 3 caracteres')
+        .max(60, 'El nombre no puede superar 60 caracteres')
+    )
+    .refine((value) => !/^\d+$/.test(value), 'El nombre no puede contener solo números'),
+  tipoPaquete: z.enum(tiposPaquete, { error: 'Debe seleccionar un tipo de paquete' }),
+  contenido: texto('El contenido por paquete').pipe(
+    z
+      .string()
+      .min(1, 'El contenido es obligatorio')
+      .max(40, 'El contenido no puede superar 40 caracteres')
+  ),
+  paquetes: entero('La cantidad de paquetes', 0, 100000),
+  paquetesMinimo: entero('El mínimo de paquetes', 0, 100000)
+})
 
 export const insumoUpdateInput = insumoInput
 
 export const compraInsumoInput = z.object({
   insumoId: z.number().int().positive('Debe seleccionar un insumo'),
-  cantidad: decimal('La cantidad', 0.01, 100000),
-  costoUnitario: decimal('El costo unitario', 0.01, 100000)
+  cantidad: entero('La cantidad de paquetes', 1, 100000),
+  costoUnitario: decimal('El costo por paquete', 0.01, 100000)
 })
 
 export const ordenInput = z.object({

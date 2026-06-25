@@ -8,5 +8,6 @@ export const ordenesRepository = {
   start: (orderId: number) => window.api.ordenes.iniciar(orderId),
   markReady: (orderId: number) => window.api.ordenes.marcarLista(orderId),
   deliver: (orderId: number) => window.api.ordenes.entregar(orderId),
-  cancel: (orderId: number) => window.api.ordenes.cancelar(orderId)
+  cancel: (orderId: number) => window.api.ordenes.cancelar(orderId),
+  revertStart: (orderId: number) => window.api.ordenes.revertirInicio(orderId)
 }

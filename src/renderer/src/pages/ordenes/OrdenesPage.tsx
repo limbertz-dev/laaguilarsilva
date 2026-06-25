@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import type {
-  Insumo,
-  OrdenResumen,
-  Servicio,
-  Vehiculo
-} from '../../../../shared/types/domain'
-import { DataTable } from '../../components/ui/DataTable'
+import type { Cliente, OrdenResumen, Servicio, Vehiculo } from '../../../../shared/types/domain'
 import { AppIcon } from '../../components/ui/AppIcon'
+import { AppSelect } from '../../components/ui/AppSelect'
+import { DataTable } from '../../components/ui/DataTable'
 import { DatePicker } from '../../components/ui/DatePicker'
 import { Modal } from '../../components/ui/Modal'
+import { VehicleSearchPicker } from '../../components/ui/VehicleSearchPicker'
 import { useAppFeedback } from '../../hooks/useAppFeedback'
-import { inventarioRepository } from '../../repositories/inventario.repository'
+import { clientesRepository } from '../../repositories/clientes.repository'
 import { ordenesRepository } from '../../repositories/ordenes.repository'
 import { serviciosRepository } from '../../repositories/servicios.repository'
 import { vehiculosRepository } from '../../repositories/vehiculos.repository'
@@ -29,11 +26,12 @@ function localDateKey(value: string): string {
 
 export function OrdenesPage(): React.JSX.Element {
   const [ordenes, setOrdenes] = useState<OrdenResumen[]>([])
+  const [clientes, setClientes] = useState<Cliente[]>([])
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
   const [servicios, setServicios] = useState<Servicio[]>([])
-  const [insumos, setInsumos] = useState<Insumo[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingOrder, setEditingOrder] = useState<OrdenResumen | null>(null)
+  const [selectedVehicleId, setSelectedVehicleId] = useState('')
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([])
   const [discount, setDiscount] = useState(0)
   const [dateFilter, setDateFilter] = useState('')
@@ -43,17 +41,22 @@ export function OrdenesPage(): React.JSX.Element {
   const { showMessage, clearMessage } = useAppFeedback()
 
   const load = useCallback(async () => {
-    const [orders, vehicles, services, supplies] = await Promise.all([
+    const [orders, clients, vehicles, services] = await Promise.all([
       ordenesRepository.list(),
+      clientesRepository.list(),
       vehiculosRepository.list(),
-      serviciosRepository.list(),
-      inventarioRepository.list()
+      serviciosRepository.list()
     ])
     setOrdenes(orders)
+    setClientes(clients)
     setVehiculos(vehicles)
     setServicios(services.filter((service) => service.estado === 'ACTIVO'))
-    setInsumos(supplies)
   }, [])
+
+  const clientNames = useMemo(
+    () => Object.fromEntries(clientes.map((client) => [client.id, client.nombre])),
+    [clientes]
+  )
 
   useEffect(() => {
     clearMessage()
@@ -71,26 +74,6 @@ export function OrdenesPage(): React.JSX.Element {
     [selectedServiceIds, servicios]
   )
   const total = Math.max(0, subtotal - discount)
-  const requiredSupplies = useMemo(() => {
-    const quantities = new Map<number, number>()
-    servicios
-      .filter((service) => selectedServiceIds.includes(service.id))
-      .flatMap((service) => service.insumos)
-      .forEach((item) => {
-        quantities.set(item.insumoId, (quantities.get(item.insumoId) ?? 0) + item.cantidad)
-      })
-    return [...quantities.entries()].map(([insumoId, cantidad]) => {
-      const supply = insumos.find((item) => item.id === insumoId)
-      return {
-        insumoId,
-        nombre: supply?.nombre ?? 'Insumo no disponible',
-        unidad: supply?.unidad ?? '',
-        cantidad,
-        stockActual: supply?.stockActual ?? 0,
-        suficiente: Boolean(supply && supply.stockActual >= cantidad)
-      }
-    })
-  }, [insumos, selectedServiceIds, servicios])
   const filteredOrders = useMemo(
     () =>
       dateFilter
@@ -103,12 +86,14 @@ export function OrdenesPage(): React.JSX.Element {
   const closeModal = (): void => {
     setModalOpen(false)
     setEditingOrder(null)
+    setSelectedVehicleId('')
     setSelectedServiceIds([])
     setDiscount(0)
   }
 
   const newOrder = (): void => {
     setEditingOrder(null)
+    setSelectedVehicleId('')
     setSelectedServiceIds([])
     setDiscount(0)
     setModalOpen(true)
@@ -116,6 +101,7 @@ export function OrdenesPage(): React.JSX.Element {
 
   const editOrder = (order: OrdenResumen): void => {
     setEditingOrder(order)
+    setSelectedVehicleId(String(order.vehiculoId))
     setSelectedServiceIds(order.servicioIds)
     setDiscount(order.descuento)
     setModalOpen(true)
@@ -129,8 +115,13 @@ export function OrdenesPage(): React.JSX.Element {
     setIsSaving(true)
     try {
       clearMessage()
+      const vehiculoId = Number(selectedVehicleId)
+      if (!vehiculoId) {
+        showMessage('Selecciona un vehículo para continuar')
+        return
+      }
       const input = {
-        vehiculoId: formNumber(data, 'vehiculoId'),
+        vehiculoId,
         servicioIds: selectedServiceIds,
         descuento: formNumber(data, 'descuento'),
         metodoPago: formText(data, 'metodoPago') as 'EFECTIVO' | 'QR' | 'TRANSFERENCIA'
@@ -225,32 +216,33 @@ export function OrdenesPage(): React.JSX.Element {
         <form onSubmit={create}>
           <div className="field">
             <label htmlFor="orden-vehiculo">Vehículo *</label>
-            <select
+            <VehicleSearchPicker
               id="orden-vehiculo"
               name="vehiculoId"
-              defaultValue={editingOrder?.vehiculoId ?? ''}
+              key={editingOrder?.id ?? 'nueva-orden'}
+              value={selectedVehicleId}
+              onChange={setSelectedVehicleId}
+              vehicles={vehiculos}
+              clientNames={clientNames}
               required
-            >
-              <option value="">Seleccionar vehículo</option>
-              {vehiculos.filter((item) => item.estado === 'ACTIVO').map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.placa} — {item.marca} {item.modelo}
-                </option>
-              ))}
-            </select>
+              placeholder="Escribe la placa del vehículo"
+            />
+            <small>Busca por placa. Se muestran hasta 10 coincidencias.</small>
           </div>
           <div className="field">
             <label htmlFor="orden-metodo-pago">Método de pago *</label>
-            <select
+            <AppSelect
               id="orden-metodo-pago"
               name="metodoPago"
+              key={`pago-${editingOrder?.id ?? 'nueva-orden'}`}
               defaultValue={editingOrder?.metodoPago ?? 'EFECTIVO'}
               required
-            >
-              <option value="EFECTIVO">Efectivo</option>
-              <option value="QR">QR</option>
-              <option value="TRANSFERENCIA">Transferencia</option>
-            </select>
+              options={[
+                { value: 'EFECTIVO', label: 'Efectivo' },
+                { value: 'QR', label: 'QR' },
+                { value: 'TRANSFERENCIA', label: 'Transferencia' }
+              ]}
+            />
           </div>
           <fieldset className="order-services-fieldset">
             <legend>
@@ -287,7 +279,7 @@ export function OrdenesPage(): React.JSX.Element {
                     }
                   >
                     <span className="order-service-icon">
-                      <AppIcon name="services" size={19} />
+                      <AppIcon name="services" size={15} />
                     </span>
                     <span className="order-service-copy">
                       <strong>{item.nombre}</strong>
@@ -302,32 +294,6 @@ export function OrdenesPage(): React.JSX.Element {
               })}
             </div>
           </fieldset>
-          {selectedServiceIds.length > 0 && (
-            <div className="order-supplies">
-              <strong>Insumos requeridos</strong>
-              {requiredSupplies.length > 0 ? (
-                requiredSupplies.map((item) => (
-                  <div
-                    className={item.suficiente ? 'available' : 'insufficient'}
-                    key={item.insumoId}
-                  >
-                    <span>{item.nombre}</span>
-                    <span>
-                      Requiere {item.cantidad} {item.unidad} · Disponible {item.stockActual}{' '}
-                      {item.unidad}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <span className="form-help">Los servicios seleccionados no consumen insumos.</span>
-              )}
-              {requiredSupplies.some((item) => !item.suficiente) && (
-                <small className="stock-warning">
-                  Falta stock. Puedes guardar la orden, pero no marcarla como lista hasta reponerlo.
-                </small>
-              )}
-            </div>
-          )}
           <div className="field">
             <label htmlFor="orden-descuento">Descuento</label>
             <input
@@ -359,7 +325,12 @@ export function OrdenesPage(): React.JSX.Element {
               Cancelar
             </button>
             <button
-              disabled={isSaving || selectedServiceIds.length === 0 || discount > subtotal}
+              disabled={
+                isSaving ||
+                !selectedVehicleId ||
+                selectedServiceIds.length === 0 ||
+                discount > subtotal
+              }
             >
               {isSaving ? 'Guardando...' : editingOrder ? 'Guardar cambios' : 'Crear orden'}
             </button>
@@ -401,14 +372,6 @@ export function OrdenesPage(): React.JSX.Element {
                   >
                     Iniciar
                   </button>
-                  <button
-                    className="danger"
-                    onClick={() =>
-                      updateStatus(() => ordenesRepository.cancel(item.id), 'Orden cancelada')
-                    }
-                  >
-                    Cancelar
-                  </button>
                   <button className="danger" onClick={() => setOrderToDelete(item)}>
                     Eliminar
                   </button>
@@ -429,7 +392,10 @@ export function OrdenesPage(): React.JSX.Element {
                   <button
                     className="danger"
                     onClick={() =>
-                      updateStatus(() => ordenesRepository.cancel(item.id), 'Orden cancelada')
+                      updateStatus(
+                        () => ordenesRepository.revertStart(item.id),
+                        'Orden devuelta a recibido'
+                      )
                     }
                   >
                     Cancelar

@@ -29,8 +29,8 @@ export function Sidebar(): React.JSX.Element {
       <div className="sidebar-footer">
         <span className="sidebar-avatar">LA</span>
         <div>
-          <strong>Administrador</strong>
-          <small>Sistema local</small>
+          <strong>LA Aguilar Silva</strong>
+          <small>Versión 1.0</small>
         </div>
       </div>
     </aside>
