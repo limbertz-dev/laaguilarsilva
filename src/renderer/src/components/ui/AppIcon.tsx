@@ -81,6 +81,11 @@ const paths: Record<string, React.ReactNode> = {
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M16 3v4M8 3v4M3 10h18" />
     </>
+  ),
+  menu: (
+    <>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </>
   )
 }
 

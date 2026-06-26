@@ -348,9 +348,9 @@ button.danger {
   grid-template-columns: 220px 1fr;
 }
 .sidebar {
-  background: #152238;
+  background: white;
   padding: 22px 14px;
-  color: white;
+  color: #0b1f44;
 }
 .sidebar h1 {
   font-size: 20px;
@@ -361,14 +361,14 @@ button.danger {
   gap: 5px;
 }
 .sidebar a {
-  color: white;
+  color: #334155;
   text-decoration: none;
   border-radius: 6px;
   padding: 9px 12px;
 }
 .sidebar a.active,
 .sidebar a:hover {
-  background: #29446e;
+  background: #f0f9ff;
 }
 .app-content {
   min-width: 0;
@@ -753,15 +753,20 @@ h2 {
   font-size: 18px;
 }
 .report-filter {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(170px, 1fr)) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: end;
+  justify-content: flex-end;
   gap: 12px;
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.report-filter > button {
+  flex: 0 0 auto;
 }
 .report-cards article {
   border-top: 4px solid #185adb;
@@ -855,6 +860,7 @@ h2 {
 }
 .cash-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: end;
   justify-content: space-between;
   gap: 16px;
@@ -864,6 +870,8 @@ h2 {
   border-radius: 8px;
   background: white;
 }
+
+
 .cash-toolbar > div:first-child {
   display: grid;
   gap: 3px;
@@ -955,14 +963,24 @@ h2 {
   min-height: 400px;
 }
 .report-controls {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.7fr) minmax(420px, 1.3fr);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
   gap: 20px;
   margin-bottom: 22px;
   padding: 18px;
   border: 1px solid #dce1ea;
   border-radius: 9px;
   background: white;
+}
+
+.report-controls .period-shortcuts {
+  flex: 0 0 auto;
+}
+
+.report-controls .report-filter {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .period-shortcuts {
   display: grid;
@@ -1313,12 +1331,15 @@ h2 {
 }
 .order-calendar-picker {
   position: relative;
+  flex: 0 0 var(--date-picker-width, 248px);
+  width: var(--date-picker-width, 248px);
 }
 .order-calendar-trigger {
   display: grid;
   grid-template-columns: auto minmax(150px, 1fr) auto;
   align-items: center;
   gap: 10px;
+  width: 100%;
   min-height: 46px;
   padding: 7px 11px;
   color: #334155;
@@ -2117,23 +2138,6 @@ th {
   gap: 6px;
 }
 @media (max-width: 800px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-  .sidebar {
-    display: flex;
-    gap: 4px;
-    overflow: auto;
-  }
-  .sidebar h1 {
-    display: none;
-  }
-  .sidebar nav {
-    display: flex;
-  }
-  .sidebar a {
-    white-space: nowrap;
-  }
   .columns {
     grid-template-columns: 1fr;
   }
@@ -2151,13 +2155,9 @@ th {
     align-items: stretch;
     flex-direction: column;
   }
-  .report-filter {
-    grid-template-columns: 1fr;
-  }
   .cash-view-switch,
   .cash-summary,
-  .movement-type-picker,
-  .report-controls {
+  .movement-type-picker {
     grid-template-columns: 1fr;
   }
   .cash-section-heading,
@@ -2167,26 +2167,121 @@ th {
     align-items: stretch;
     flex-direction: column;
   }
+
+  .cash-toolbar .order-calendar-picker {
+    align-self: flex-start;
+  }
+
+  .report-controls .report-filter {
+    justify-content: flex-start;
+  }
+
+  .report-period-card {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
   .cash-date-filter input {
     width: 100%;
   }
+
   .export-actions {
     flex-wrap: wrap;
+    width: 100%;
   }
+
+  .export-actions button {
+    flex: 1 1 auto;
+  }
+
   .dashboard-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .filter-bar .field,
+  .client-filter-bar .field {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .vehicle-cell {
+    min-width: 0;
+  }
+
+  .vehicle-list {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .page-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-actions button,
+  .page-actions .button-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modal-backdrop {
+    padding: 12px;
+    align-items: end;
+  }
+
+  .modal-panel {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .modal-actions button {
+    width: 100%;
+  }
+
+  .cash-section-heading button {
+    width: 100%;
+  }
+
+  .chart-card header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .notice {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+
   .vehicle-details {
     grid-template-columns: 1fr;
   }
+
   .form-grid-two {
     grid-template-columns: 1fr;
   }
+
   .order-supplies > div {
     align-items: start;
     flex-direction: column;
+  }
+
+  .financial-breakdown {
+    flex-direction: column;
+    gap: 8px;
   }
 }
 
@@ -2327,6 +2422,43 @@ body {
   padding: 25px 32px 18px;
   background: transparent;
   border: 0;
+}
+
+.app-header-leading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.app-header-leading > div {
+  min-width: 0;
+}
+
+.mobile-menu-toggle {
+  display: none;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  color: #0b1f44;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.mobile-menu-toggle:hover {
+  color: var(--primary-dark);
+  background: #f0f9ff;
+  border-color: #bae6fd;
+  transform: none;
+}
+
+.sidebar-backdrop {
+  display: none;
 }
 
 .app-header h1 {
@@ -2750,6 +2882,11 @@ tbody tr:hover {
   .dashboard-kpis {
     grid-template-columns: repeat(2, minmax(190px, 1fr));
   }
+
+  .report-controls .report-filter {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 800px) {
@@ -2788,19 +2925,35 @@ tbody tr:hover {
     width: 100%;
   }
 
-  .order-calendar-picker,
-  .order-calendar-trigger {
-    width: 100%;
-  }
-
   .order-calendar-popover {
     right: auto;
     left: 0;
-    width: min(310px, calc(100vw - 68px));
   }
 
   .order-date-result {
     justify-content: center;
+  }
+
+  .mobile-menu-toggle {
+    display: grid;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    padding: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+
+  .app-shell.menu-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .app-shell {
@@ -2808,34 +2961,58 @@ tbody tr:hover {
   }
 
   .sidebar {
-    position: static;
-    height: auto;
-    display: block;
-    padding: 12px;
-    overflow-x: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    width: min(288px, 88vw);
+    height: 100vh;
+    height: 100dvh;
+    padding: 20px 16px;
+    overflow-y: auto;
+    transform: translateX(-105%);
+    transition: transform 220ms ease;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
   }
 
   .sidebar-brand,
   .sidebar-footer {
-    display: none;
+    display: flex;
   }
 
   .sidebar nav {
-    display: flex;
-    min-width: max-content;
+    display: grid;
+    gap: 7px;
   }
 
   .sidebar a {
-    min-height: 40px;
+    min-height: 46px;
+    white-space: normal;
   }
 
   .app-content {
     max-height: none;
+    width: 100%;
   }
 
   .app-header {
     align-items: flex-start;
-    padding: 20px 18px 12px;
+    padding: 16px 18px 12px;
+  }
+
+  .app-header h1 {
+    font-size: 20px;
+  }
+
+  .app-header p {
+    font-size: 13px;
   }
 
   .header-date {
@@ -2843,7 +3020,7 @@ tbody tr:hover {
   }
 
   main {
-    padding: 8px 18px 26px;
+    padding: 8px 16px 24px;
   }
 
   .dashboard-kpis {
@@ -3265,7 +3442,9 @@ tbody tr:hover {
   .compact-cards article,
   .report-cards article,
   .chart-card,
-  .vehicle-summary {
+  .vehicle-summary,
+  .sidebar,
+  .sidebar-backdrop {
     transition: none;
   }
 }

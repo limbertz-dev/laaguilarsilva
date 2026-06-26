@@ -2,9 +2,14 @@ import { NavLink } from 'react-router-dom'
 import { navigationItems } from '../../routes/navigation'
 import { AppIcon } from '../ui/AppIcon'
 
-export function Sidebar(): React.JSX.Element {
+interface SidebarProps {
+  open?: boolean
+  onNavigate?: () => void
+}
+
+export function Sidebar({ open = false, onNavigate }: SidebarProps): React.JSX.Element {
   return (
-    <aside className="sidebar">
+    <aside id="app-sidebar" className={`sidebar${open ? ' open' : ''}`}>
       <div className="sidebar-brand">
         <span className="brand-icon">
           <AppIcon name="car" size={27} />
@@ -20,6 +25,7 @@ export function Sidebar(): React.JSX.Element {
             key={item.path}
             to={item.path}
             className={({ isActive }) => (isActive ? 'active' : undefined)}
+            onClick={onNavigate}
           >
             <AppIcon name={item.icon} size={21} />
             <span>{item.label}</span>
