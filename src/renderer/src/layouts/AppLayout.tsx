@@ -13,7 +13,7 @@ export function AppLayout(): React.JSX.Element {
   const [message, setMessage] = useState('')
   const [tipo, setTipo] = useState<'error' | 'exito'>('error')
   const [menuOpen, setMenuOpen] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const showMessage = useCallback((value: string, tipo?: 'error' | 'exito') => {
     clearTimeout(timerRef.current)
     setMessage(value)
