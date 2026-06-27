@@ -21,27 +21,11 @@ export interface DBResult {
   changes: number
 }
 
-function loadWasmBinary(url: string): Promise<ArrayBuffer> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open('GET', url, true)
-    xhr.responseType = 'arraybuffer'
-    xhr.onload = (): void => {
-      if (xhr.status === 0 || xhr.status === 200) {
-        resolve(xhr.response as ArrayBuffer)
-      } else {
-        reject(new Error(`HTTP ${xhr.status}`))
-      }
-    }
-    xhr.onerror = (): void => reject(new Error(`Error al cargar ${url}`))
-    xhr.send()
-  })
-}
-
 export async function initDatabase(): Promise<void> {
   if (db) return
-  const wasmBinary = await loadWasmBinary('./sql-wasm.wasm')
-  SQL = await initSqlJs({ wasmBinary })
+  SQL = await initSqlJs({
+    locateFile: (file) => './' + file
+  })
   db = new SQL.Database()
   db.run(schemaSql)
 }
@@ -96,14 +80,17 @@ export function transaction<T>(operation: () => T): T {
   }
 }
 
+export const sqlNow = "datetime('now', 'localtime')"
+
 const schemaSql = `
 PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
 
 CREATE TABLE IF NOT EXISTS clientes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre TEXT NOT NULL,
   telefono TEXT NOT NULL,
-  creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  creado_en TEXT NOT NULL DEFAULT ${sqlNow},
   estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
   eliminacion_programada_en TEXT
 );
@@ -164,7 +151,7 @@ CREATE TABLE IF NOT EXISTS ordenes (
   estado TEXT NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'COMPLETADA', 'CANCELADA')),
   estado_operativo TEXT NOT NULL DEFAULT 'RECIBIDO',
   metodo_pago TEXT NOT NULL DEFAULT 'EFECTIVO',
-  fecha_ingreso TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_ingreso TEXT NOT NULL DEFAULT ${sqlNow},
   fecha_completada TEXT
 );
 
@@ -188,7 +175,7 @@ CREATE TABLE IF NOT EXISTS consumos_insumo (
   servicio_id INTEGER NOT NULL REFERENCES servicios(id) ON DELETE RESTRICT,
   insumo_id INTEGER NOT NULL REFERENCES insumos(id) ON DELETE RESTRICT,
   cantidad REAL NOT NULL CHECK (cantidad > 0),
-  fecha TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha TEXT NOT NULL DEFAULT ${sqlNow},
   UNIQUE (orden_id, servicio_id, insumo_id)
 );
 
@@ -198,12 +185,12 @@ CREATE TABLE IF NOT EXISTS compras_insumo (
   cantidad REAL NOT NULL CHECK (cantidad > 0),
   costo_unitario_centavos INTEGER NOT NULL CHECK (costo_unitario_centavos >= 0),
   total_centavos INTEGER NOT NULL CHECK (total_centavos >= 0),
-  fecha TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  fecha TEXT NOT NULL DEFAULT ${sqlNow}
 );
 
 CREATE TABLE IF NOT EXISTS movimientos_caja (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  fecha TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha TEXT NOT NULL DEFAULT ${sqlNow},
   tipo TEXT NOT NULL CHECK (tipo IN ('INGRESO', 'EGRESO')),
   categoria TEXT NOT NULL,
   concepto TEXT NOT NULL,
