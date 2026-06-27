@@ -1,10 +1,11 @@
 import type { VehiculoInput } from '../../../shared/schemas/inputs'
+import { api } from '../lib/api-client'
 
 export const vehiculosRepository = {
-  list: () => window.api.vehiculos.listar(),
-  create: (input: VehiculoInput) => window.api.vehiculos.crear(input),
+  list: () => api.vehiculos.listar(),
+  create: (input: VehiculoInput) => api.vehiculos.crear(input),
   update: (vehicleId: number, input: VehiculoInput) =>
-    window.api.vehiculos.actualizar(vehicleId, input),
-  delete: (vehicleId: number) => window.api.vehiculos.eliminar(vehicleId),
-  cancelarEliminacion: (vehicleId: number) => window.api.vehiculos.cancelarEliminacion(vehicleId)
+    api.vehiculos.actualizar(vehicleId, input),
+  delete: (vehicleId: number) => api.vehiculos.eliminar(vehicleId),
+  cancelarEliminacion: (vehicleId: number) => api.vehiculos.cancelarEliminacion(vehicleId)
 }

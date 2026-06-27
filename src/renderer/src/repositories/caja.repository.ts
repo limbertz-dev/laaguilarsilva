@@ -1,7 +1,8 @@
 import type { EgresoInput, MovimientoManualInput } from '../../../shared/schemas/inputs'
+import { api } from '../lib/api-client'
 
 export const cajaRepository = {
-  getSummary: () => window.api.caja.resumen(),
-  registerExpense: (input: EgresoInput) => window.api.caja.registrarEgreso(input),
-  registerMovement: (input: MovimientoManualInput) => window.api.caja.registrarMovimiento(input)
+  getSummary: () => api.caja.resumen(),
+  registerExpense: (input: EgresoInput) => api.caja.registrarEgreso(input),
+  registerMovement: (input: MovimientoManualInput) => api.caja.registrarMovimiento(input)
 }
