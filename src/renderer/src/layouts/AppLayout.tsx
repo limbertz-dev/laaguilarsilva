@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Header } from '../components/layout/Header'
 import { Sidebar } from '../components/layout/Sidebar'
-import { useStatusBarTheme } from '../hooks/useStatusBarTheme'
 
 export interface AppLayoutContext {
   showMessage: (message: string) => void
@@ -13,11 +12,7 @@ export function AppLayout(): React.JSX.Element {
   const location = useLocation()
   const [message, setMessage] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
-  useStatusBarTheme()
-  const showMessage = useCallback((value: string) => {
-    setMessage(value)
-    if (value) window.setTimeout(() => setMessage(''), 3000)
-  }, [])
+  const showMessage = useCallback((value: string) => setMessage(value), [])
   const clearMessage = useCallback(() => setMessage(''), [])
   const closeMenu = useCallback(() => setMenuOpen(false), [])
   const toggleMenu = useCallback(() => setMenuOpen((open) => !open), [])
@@ -46,14 +41,13 @@ export function AppLayout(): React.JSX.Element {
 
   return (
     <div className={`app-shell${menuOpen ? ' menu-open' : ''}`}>
-      {menuOpen && (
-        <button
-          type="button"
-          className="sidebar-backdrop"
-          aria-label="Cerrar menú"
-          onClick={closeMenu}
-        />
-      )}
+      <button
+        type="button"
+        className="sidebar-backdrop"
+        aria-label="Cerrar menú"
+        tabIndex={menuOpen ? 0 : -1}
+        onClick={closeMenu}
+      />
       <Sidebar open={menuOpen} onNavigate={closeMenu} />
       <div className="app-content">
         <Header menuOpen={menuOpen} onMenuToggle={toggleMenu} />

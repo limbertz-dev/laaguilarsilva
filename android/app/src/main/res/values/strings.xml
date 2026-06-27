@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">laaguilarsilva</string>
-    <string name="title_activity_main">laaguilarsilva</string>
-    <string name="package_name">com.limbertzdev.laaguilarsilva</string>
-    <string name="custom_url_scheme">com.limbertzdev.laaguilarsilva</string>
-</resources>

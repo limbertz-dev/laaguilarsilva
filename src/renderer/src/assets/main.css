@@ -4,13 +4,6 @@ body {
   margin: 0;
   background: #f3f4f6;
   color: #172033;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-
-input, textarea, [contenteditable] {
-  -webkit-user-select: text;
   user-select: text;
 }
 button,
@@ -26,7 +19,6 @@ button {
   padding: 9px 12px;
   background: #185adb;
   color: white;
-  touch-action: manipulation;
 }
 button:disabled {
   cursor: not-allowed;
@@ -352,7 +344,6 @@ button.danger {
 }
 .app-shell {
   min-height: 100vh;
-  min-height: 100dvh;
   display: grid;
   grid-template-columns: 220px 1fr;
 }
@@ -382,7 +373,6 @@ button.danger {
 .app-content {
   min-width: 0;
   max-height: 100vh;
-  max-height: 100dvh;
   overflow: auto;
 }
 .app-header {
@@ -406,10 +396,10 @@ h2 {
 }
 .notice {
   position: fixed;
-  top: calc(16px + var(--safe-area-top));
-  right: calc(20px + var(--safe-area-right));
+  top: 16px;
+  right: 20px;
   z-index: 2000;
-  width: min(420px, calc(100vw - 40px - var(--safe-area-left) - var(--safe-area-right)));
+  width: min(420px, calc(100vw - 40px));
   padding: 12px;
   background: #fff3cd;
   border: 1px solid #f0d98a;
@@ -971,7 +961,6 @@ h2 {
 }
 .reports-workspace {
   min-height: 400px;
-  overflow: visible;
 }
 .report-controls {
   display: flex;
@@ -1786,12 +1775,12 @@ form {
   z-index: 1000;
   display: grid;
   place-items: center;
-  padding: calc(24px + var(--safe-area-top)) calc(24px + var(--safe-area-right)) calc(24px + var(--safe-area-bottom)) calc(24px + var(--safe-area-left));
+  padding: 24px;
   background: rgba(15, 23, 42, 0.55);
 }
 .modal-panel {
   width: min(620px, 100%);
-  max-height: calc(100dvh - 48px - var(--safe-area-top) - var(--safe-area-bottom));
+  max-height: calc(100vh - 48px);
   overflow: auto;
   background: white;
   border-radius: 10px;
@@ -1818,7 +1807,6 @@ form {
 }
 .modal-body {
   padding: 18px;
-  padding-bottom: calc(18px + var(--safe-area-bottom));
 }
 .modal-body form {
   margin: 0;
@@ -2272,9 +2260,9 @@ th {
   }
 
   .notice {
-    top: calc(12px + var(--safe-area-top));
-    right: calc(12px + var(--safe-area-right));
-    left: calc(12px + var(--safe-area-left));
+    top: 12px;
+    right: 12px;
+    left: 12px;
     width: auto;
   }
 
@@ -2315,10 +2303,9 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
-  height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: calc(24px + var(--safe-area-top)) 18px calc(24px + var(--safe-area-bottom));
+  padding: 24px 18px;
   color: var(--text-main);
   background: rgba(255, 255, 255, 0.94);
   border-right: 1px solid var(--border);
@@ -2981,7 +2968,7 @@ tbody tr:hover {
     width: min(288px, 88vw);
     height: 100vh;
     height: 100dvh;
-    padding: calc(20px + var(--safe-area-top)) 16px calc(20px + var(--safe-area-bottom));
+    padding: 20px 16px;
     overflow-y: auto;
     transform: translateX(-105%);
     transition: transform 220ms ease;
@@ -3017,7 +3004,7 @@ tbody tr:hover {
 
   .app-header {
     align-items: flex-start;
-    padding: calc(16px + var(--safe-area-top)) 18px 12px;
+    padding: 16px 18px 12px;
   }
 
   .app-header h1 {
@@ -3033,251 +3020,11 @@ tbody tr:hover {
   }
 
   main {
-    padding: 8px 16px calc(24px + var(--safe-area-bottom));
+    padding: 8px 16px 24px;
   }
 
   .dashboard-kpis {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 480px) {
-  .app-header {
-    flex-direction: column;
-    gap: 10px;
-    padding: calc(12px + var(--safe-area-top)) 14px 12px;
-  }
-
-  .app-header h1 {
-    font-size: 17px;
-  }
-
-  .app-header p {
-    font-size: 12px;
-  }
-
-  main {
-    padding: 6px 10px calc(18px + var(--safe-area-bottom));
-  }
-
-  .cards {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .question-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .form-grid-two,
-  .vehicle-details,
-  .recipe-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .recipe-item {
-    grid-template-columns: minmax(0, 1fr) 100px;
-  }
-
-  .recipe-quantity input {
-    min-height: 30px;
-    padding: 4px 6px;
-    font-size: 13px;
-  }
-
-  .cash-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .vehicle-list {
-    grid-template-columns: 1fr;
-  }
-
-  .vehicle-summary {
-    min-width: 0;
-  }
-
-  .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filter-bar .field {
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .report-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .report-controls .period-shortcuts > div {
-    flex-wrap: wrap;
-  }
-
-  .report-controls .period-shortcuts button {
-    flex: 1 1 auto;
-    text-align: center;
-  }
-
-  .order-date-filter-heading {
-    min-width: 0;
-  }
-
-  .order-calendar-picker {
-    --date-picker-width: 100%;
-  }
-
-  .order-calendar-popover {
-    width: 290px;
-    right: auto;
-    left: 0;
-  }
-
-  .order-services-grid {
-    grid-template-columns: 1fr;
-    max-height: 300px;
-  }
-
-  .order-service-card {
-    min-height: 40px;
-    padding: 5px 32px 5px 6px;
-  }
-
-  .compact-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .chart-card.chart-wide {
-    grid-column: span 1;
-  }
-
-  .line-chart {
-    min-width: 300px;
-  }
-
-  .comparison-chart {
-    min-height: 160px;
-  }
-
-  .balance-chart {
-    min-height: 160px;
-  }
-
-  .vehicle-details > div:not(.modal-actions) {
-    padding: 8px;
-  }
-
-  .locked-owner {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 8px;
-    padding: 7px 9px;
-    min-height: 42px;
-  }
-
-  .locked-owner-badge {
-    display: none;
-  }
-
-  .vehicle-register-toggle {
-    padding: 10px 12px;
-  }
-
-  .nested-form-section {
-    padding: 10px;
-  }
-
-  .checkbox-field {
-    padding: 9px 10px;
-  }
-
-  .order-supplies > div {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    font-size: 12px;
-  }
-
-  .client-actions {
-    min-width: 0;
-  }
-
-  .modal-panel {
-    width: 100%;
-    max-height: calc(100dvh - 16px - var(--safe-area-top) - var(--safe-area-bottom));
-    border-radius: 10px;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-  }
-
-  .modal-backdrop {
-    padding: calc(var(--safe-area-top) + 8px) calc(var(--safe-area-right) + 8px) calc(var(--safe-area-bottom) + 8px) calc(var(--safe-area-left) + 8px);
-    align-items: end;
-  }
-
-  .modal-header {
-    padding: calc(12px + var(--safe-area-top)) 14px 12px;
-  }
-
-  .modal-header h2 {
-    font-size: 17px;
-  }
-
-  .modal-body {
-    padding: 14px;
-    padding-bottom: calc(14px + var(--safe-area-bottom));
-  }
-
-  .modal-actions {
-    flex-direction: column-reverse;
-    align-items: stretch;
-  }
-
-  .modal-actions button {
-    width: 100%;
-  }
-
-  .empty-state {
-    padding: 28px 14px;
-  }
-
-  .header-date {
-    display: none;
-  }
-
-  .period-shortcuts > div {
-    flex-direction: column;
-  }
-
-  .export-actions {
-    flex-wrap: wrap;
-    width: 100%;
-  }
-
-  .export-actions button {
-    flex: 1 1 auto;
-  }
-
-  .actions button {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  .cash-view-switch button {
-    min-height: 44px;
-    padding: 11px 14px;
-  }
-
-  .page-actions button {
-    min-height: 44px;
-  }
-
-  .sidebar a {
-    min-height: 48px;
   }
 }
 
