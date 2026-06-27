@@ -1,19 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Header } from '../components/layout/Header'
 import { Sidebar } from '../components/layout/Sidebar'
 
 export interface AppLayoutContext {
-  showMessage: (message: string) => void
+  showMessage: (message: string, tipo?: 'error' | 'exito') => void
   clearMessage: () => void
 }
 
 export function AppLayout(): React.JSX.Element {
   const location = useLocation()
   const [message, setMessage] = useState('')
+  const [tipo, setTipo] = useState<'error' | 'exito'>('error')
   const [menuOpen, setMenuOpen] = useState(false)
-  const showMessage = useCallback((value: string) => setMessage(value), [])
-  const clearMessage = useCallback(() => setMessage(''), [])
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const showMessage = useCallback((value: string, tipo?: 'error' | 'exito') => {
+    clearTimeout(timerRef.current)
+    setMessage(value)
+    setTipo(tipo ?? 'error')
+    timerRef.current = setTimeout(() => setMessage(''), 3000)
+  }, [])
+  const clearMessage = useCallback(() => {
+    clearTimeout(timerRef.current)
+    setMessage('')
+  }, [])
   const closeMenu = useCallback(() => setMenuOpen(false), [])
   const toggleMenu = useCallback(() => setMenuOpen((open) => !open), [])
   const outletContext = useMemo(() => ({ showMessage, clearMessage }), [clearMessage, showMessage])
@@ -52,7 +62,7 @@ export function AppLayout(): React.JSX.Element {
       <div className="app-content">
         <Header menuOpen={menuOpen} onMenuToggle={toggleMenu} />
         <main>
-          {message && <div className="notice">{message}</div>}
+          {message && <div className={`notice notice--${tipo}`}>{message}</div>}
           <div className="route-transition" key={location.pathname}>
             <Outlet context={outletContext} />
           </div>
